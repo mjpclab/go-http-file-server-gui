@@ -1,0 +1,7 @@
+Website = "https://mjpclab.net/ghfs"
+
+[Details]
+  Icon = "Icon.png"
+  Name = "ghfs-gui"
+  ID = "net.mjpclab.go-http-file-server-gui"
+  Version = "0.0.1"
