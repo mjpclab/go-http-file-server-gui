@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"fyne.io/fyne/v2"
@@ -9,7 +8,6 @@ import (
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 	"mjpclab.dev/ghfs/src/app"
-	"mjpclab.dev/ghfs/src/goVirtualHost"
 	"mjpclab.dev/ghfs/src/param"
 	"mjpclab.dev/ghfs/src/setting"
 	"net/url"
@@ -107,12 +105,9 @@ func attachStartStopHandlers(widgets *uiWidgets) {
 }
 
 func _createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
-	var certificates []tls.Certificate
+	var certKeyPaths [][2]string
 	if len(widgets.tlsCert.Text) > 0 && len(widgets.tlsKey.Text) > 0 {
-		cert, err := goVirtualHost.LoadCertificate(widgets.tlsCert.Text, widgets.tlsKey.Text)
-		if err == nil {
-			certificates = append(certificates, cert)
-		}
+		certKeyPaths = [][2]string{{widgets.tlsCert.Text, widgets.tlsKey.Text}}
 	}
 
 	params, errs := param.NewParams([]param.Param{{
@@ -123,7 +118,7 @@ func _createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 		GlobalUpload:  widgets.upload.Checked,
 		GlobalMkdir:   widgets.mkdir.Checked,
 		GlobalDelete:  widgets.del.Checked,
-		Certificates:  certificates,
+		CertKeyPaths:  certKeyPaths,
 	}})
 	if len(errs) > 0 {
 		fmt.Println(errs)
