@@ -111,9 +111,10 @@ func _createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 	}
 
 	params, errs := param.NewParams([]param.Param{{
+		Listens:       []string{widgets.listen.Text},
 		IndexUrls:     []string{"/"},
 		Root:          widgets.root.Text,
-		Listens:       []string{widgets.listen.Text},
+		DefaultSort:   "/n",
 		GlobalArchive: widgets.archive.Checked,
 		GlobalUpload:  widgets.upload.Checked,
 		GlobalMkdir:   widgets.mkdir.Checked,
