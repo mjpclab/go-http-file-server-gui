@@ -9,7 +9,6 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"mjpclab.dev/ghfs/src/app"
 	"mjpclab.dev/ghfs/src/param"
-	"mjpclab.dev/ghfs/src/setting"
 	"net/url"
 	"path/filepath"
 )
@@ -86,14 +85,16 @@ func attachStartStopHandlers(widgets *uiWidgets) {
 		_createLinks(appInst, widgets.links)
 		go func() {
 			errs = appInst.Open()
-			if len(errs) > 0 {
-				fmt.Println(errs)
-				dialog.ShowError(errors.Join(errs...), widgets.window)
-			}
-			widgets.links.RemoveAll()
-			stop.Disable()
-			start.Enable()
-			appInst = nil
+			fyne.Do(func() {
+				if len(errs) > 0 {
+					fmt.Println(errs)
+					dialog.ShowError(errors.Join(errs...), widgets.window)
+				}
+				widgets.links.RemoveAll()
+				stop.Disable()
+				start.Enable()
+				appInst = nil
+			})
 		}()
 	}
 
@@ -126,14 +127,8 @@ func _createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 		return
 	}
 
-	// setting
-	setting := &setting.Setting{
-		Quiet:   false,
-		PidFile: "",
-	}
-
 	// app
-	appInst, errs = app.NewApp(params, setting)
+	appInst, errs = app.NewApp(params)
 	if len(errs) > 0 {
 		fmt.Println(errs)
 	}
@@ -141,7 +136,7 @@ func _createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 }
 
 func _createLinks(appInst *app.App, container *fyne.Container) {
-	accessOrigins := appInst.GetAccessibleOrigins(false)
+	accessOrigins := appInst.GetAccessibleUrls(false)
 	if len(accessOrigins) == 0 {
 		return
 	}
