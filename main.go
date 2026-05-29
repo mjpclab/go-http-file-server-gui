@@ -1,8 +1,15 @@
 package main
 
+import (
+	. "modernc.org/tk9.0"
+	_ "modernc.org/tk9.0/themes/azure"
+)
+
 func main() {
+	applySystemTheme()
 	widgets := newUI()
-	maintainPreference(widgets)
+	loadPreference(widgets)
 	attachHandlers(widgets)
-	widgets.window.ShowAndRun()
+	App.Wait()
+	savePreference(widgets)
 }

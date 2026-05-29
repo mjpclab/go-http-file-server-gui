@@ -3,147 +3,149 @@ package main
 import (
 	"errors"
 	"fmt"
-	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/storage"
-	"fyne.io/fyne/v2/widget"
-	"mjpclab.dev/ghfs/src/app"
-	"mjpclab.dev/ghfs/src/param"
 	"net/url"
 	"path/filepath"
+
+	"mjpclab.dev/ghfs/src/app"
+	"mjpclab.dev/ghfs/src/param"
+	. "modernc.org/tk9.0"
 )
 
 func attachHandlers(widgets *uiWidgets) {
-	attachDropHandlers(widgets)
 	attachBrowseHandlers(widgets)
 	attachStartStopHandlers(widgets)
 }
 
-func attachDropHandlers(widgets *uiWidgets) {
-	widgets.window.SetOnDropped(func(pos fyne.Position, uris []fyne.URI) {
-		if len(uris) > 0 {
-			widgets.root.SetText(uris[0].Path())
-		}
-	})
-}
-
 func attachBrowseHandlers(widgets *uiWidgets) {
-	_attachBrowseFolderHandler(widgets.window, widgets.root, widgets.rootPick)
-	_attachBrowseFileHandler(widgets.window, widgets.tlsCert, widgets.tlsCertPick)
-	_attachBrowseFileHandler(widgets.window, widgets.tlsKey, widgets.tlsKeyPick)
+	widgets.rootPick.Configure(Command(func() {
+		dir := ChooseDirectory(Initialdir(widgets.root.Textvariable()))
+		if dir != "" {
+			widgets.root.Configure(Textvariable(dir))
+		}
+	}))
+	attachFilePickHandler(widgets.tlsCertPick, widgets.tlsCert)
+	attachFilePickHandler(widgets.tlsKeyPick, widgets.tlsKey)
 }
 
-func _attachBrowseFolderHandler(window fyne.Window, entry *widget.Entry, button *widget.Button) {
-	dlg := dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
-		if uri == nil || err != nil {
-			return
+func attachFilePickHandler(button *TButtonWidget, entry *TEntryWidget) {
+	button.Configure(Command(func() {
+		files := GetOpenFile(Initialdir(filepath.Dir(entry.Textvariable())))
+		if len(files) > 0 && len(files[0]) > 0 {
+			entry.Configure(Textvariable(files[0]))
 		}
-		entry.SetText(uri.Path())
-	}, window)
-
-	button.OnTapped = func() {
-		uri := storage.NewFileURI(entry.Text)
-		luri, err := storage.ListerForURI(uri)
-		if err == nil {
-			dlg.SetLocation(luri)
-		}
-		dlg.Show()
-	}
-}
-
-func _attachBrowseFileHandler(window fyne.Window, entry *widget.Entry, button *widget.Button) {
-	dlg := dialog.NewFileOpen(func(uri fyne.URIReadCloser, err error) {
-		if uri == nil || err != nil {
-			return
-		}
-		entry.SetText(uri.URI().Path())
-	}, window)
-
-	button.OnTapped = func() {
-		uri := storage.NewFileURI(filepath.Dir(entry.Text))
-		luri, err := storage.ListerForURI(uri)
-		if err == nil {
-			dlg.SetLocation(luri)
-		}
-		dlg.Show()
-	}
+	}))
 }
 
 func attachStartStopHandlers(widgets *uiWidgets) {
 	var appInst *app.App
-	start := widgets.start
-	stop := widgets.stop
 
-	start.OnTapped = func() {
-		var errs []error
-		appInst, errs = _createApp(widgets)
+	widgets.start.Configure(Command(func() {
+		inst, errs := createApp(widgets)
 		if len(errs) > 0 {
+			showErrors(errs)
 			return
 		}
-		start.Disable()
-		stop.Enable()
-		_createLinks(appInst, widgets.links)
+		appInst = inst
+		widgets.start.Configure(State("disabled"))
+		widgets.stop.Configure(State("normal"))
+		setInputsEnabled(widgets, false)
+		createLinks(appInst, widgets)
 		go func() {
-			errs = appInst.Open()
-			fyne.Do(func() {
-				if len(errs) > 0 {
-					fmt.Println(errs)
-					dialog.ShowError(errors.Join(errs...), widgets.window)
+			openErrs := appInst.Open()
+			// app.Open blocks while serving; UI updates must run on the GUI thread.
+			PostEvent(func() {
+				if len(openErrs) > 0 {
+					showErrors(openErrs)
 				}
-				widgets.links.RemoveAll()
-				stop.Disable()
-				start.Enable()
+				clearLinks(widgets)
+				widgets.stop.Configure(State("disabled"))
+				setInputsEnabled(widgets, true)
+				widgets.start.Configure(State("normal"))
 				appInst = nil
-			})
+			}, false)
 		}()
-	}
+	}))
 
-	stop.OnTapped = func() {
+	widgets.stop.Configure(Command(func() {
 		if appInst != nil {
 			appInst.Close()
 		}
-	}
+	}))
 }
 
-func _createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
+func createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 	var certKeyPaths [][2]string
-	if len(widgets.tlsCert.Text) > 0 && len(widgets.tlsKey.Text) > 0 {
-		certKeyPaths = [][2]string{{widgets.tlsCert.Text, widgets.tlsKey.Text}}
+	cert := widgets.tlsCert.Textvariable()
+	key := widgets.tlsKey.Textvariable()
+	if len(cert) > 0 && len(key) > 0 {
+		certKeyPaths = [][2]string{{cert, key}}
 	}
 
 	params, errs := param.NewParams([]param.Param{{
-		Listens:       []string{widgets.listen.Text},
+		Listens:       []string{widgets.listen.Textvariable()},
 		IndexUrls:     []string{"/"},
-		Root:          widgets.root.Text,
+		Root:          widgets.root.Textvariable(),
 		DefaultSort:   "/n",
-		GlobalArchive: widgets.archive.Checked,
-		GlobalUpload:  widgets.upload.Checked,
-		GlobalMkdir:   widgets.mkdir.Checked,
-		GlobalDelete:  widgets.del.Checked,
+		GlobalArchive: widgets.archive.Get() == "1",
+		GlobalUpload:  widgets.upload.Get() == "1",
+		GlobalMkdir:   widgets.mkdir.Get() == "1",
+		GlobalDelete:  widgets.del.Get() == "1",
 		CertKeyPaths:  certKeyPaths,
 	}})
 	if len(errs) > 0 {
-		fmt.Println(errs)
 		return
 	}
 
-	// app
 	appInst, errs = app.NewApp(params)
-	if len(errs) > 0 {
-		fmt.Println(errs)
-	}
 	return
 }
 
-func _createLinks(appInst *app.App, container *fyne.Container) {
+func createLinks(appInst *app.App, widgets *uiWidgets) {
+	clearLinks(widgets)
 	accessOrigins := appInst.GetAccessibleUrls(false)
 	if len(accessOrigins) == 0 {
 		return
 	}
+
 	for _, origin := range accessOrigins[0] {
-		originUrl, err := url.Parse(origin)
-		if err == nil {
-			container.Add(widget.NewHyperlink(origin, originUrl))
+		if _, err := url.Parse(origin); err != nil {
+			continue
 		}
+		origin := origin
+		lbl := widgets.links.TLabel(Txt(origin), Cursor("hand2"), Style("Link.TLabel"))
+		Bind(lbl, "<Button-1>", Command(func() {
+			if err := openBrowser(origin); err != nil {
+				fmt.Println(err)
+			}
+		}))
+		Pack(lbl, Anchor("w"), Pady("1"))
 	}
+}
+
+func clearLinks(widgets *uiWidgets) {
+	for _, child := range WinfoChildren(widgets.links.Window) {
+		Destroy(child)
+	}
+}
+
+func setInputsEnabled(widgets *uiWidgets, enabled bool) {
+	var inputState, ctrlState string
+	if enabled {
+		inputState, ctrlState = "normal", "normal"
+	} else {
+		inputState, ctrlState = "readonly", "disabled"
+	}
+
+	for _, w := range widgets.lockedInputs {
+		w.Configure(State(inputState))
+	}
+	for _, w := range widgets.lockedControls {
+		w.Configure(State(ctrlState))
+	}
+}
+
+func showErrors(errs []error) {
+	err := errors.Join(errs...)
+	fmt.Println(err)
+	MessageBox(Icon("error"), Title("Error"), Msg(err.Error()), Type("ok"))
 }

@@ -1,4 +1,4 @@
 .*/
-fyne-cross/
-fyne_metadata_init.go
-ghfs-gui.*
+ghfs-gui
+ghfs-gui.exe
+output/
