@@ -2,6 +2,8 @@ package main
 
 import (
 	_ "embed"
+	"fmt"
+	"strconv"
 
 	. "modernc.org/tk9.0"
 	"modernc.org/tk9.0/extensions/themedetector"
@@ -33,7 +35,12 @@ func applySystemTheme() {
 }
 
 //go:embed Icon.png
-var iconPNG string
+var iconPNG []byte
+
+const (
+	winWidth, winHeight = 650, 400
+	minWidth, minHeight = 500, 300
+)
 
 type uiWidgets struct {
 	root     *TEntryWidget
@@ -62,8 +69,9 @@ type uiWidgets struct {
 
 func newUI() *uiWidgets {
 	App.WmTitle("Go HTTP File Server GUI")
-	WmGeometry(App, "650x400")
-	App.IconPhoto(NewPhoto(Data([]byte(iconPNG))))
+	WmMinSize(App, minWidth, minHeight)
+	centerWindow(App)
+	App.IconPhoto(NewPhoto(Data(iconPNG)))
 
 	nb := TNotebook()
 
@@ -159,4 +167,15 @@ func formRow(parent *Window, row int, label string, entry *TEntryWidget, pick *T
 	Grid(parent.TLabel(Txt(label)), Row(row), Column(0), Sticky("w"), Padx("1m"), Pady("1m"))
 	Grid(entry, Row(row), Column(1), Sticky("we"), Padx("1m"), Pady("1m"))
 	Grid(pick, Row(row), Column(2), Padx("1m"), Pady("1m"))
+}
+
+// centerWindow sizes the window and positions it at the center of the screen.
+// The window size is fixed and known, so the geometry can be computed from
+// constants without forcing a full event loop update to read back winfo.
+func centerWindow(w *Window) {
+	sw, _ := strconv.Atoi(WinfoScreenWidth(w))
+	sh, _ := strconv.Atoi(WinfoScreenHeight(w))
+	x := (sw - winWidth) / 2
+	y := (sh - winHeight) / 2
+	WmGeometry(w, fmt.Sprintf("%dx%d+%d+%d", winWidth, winHeight, x, y))
 }
