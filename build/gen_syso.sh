@@ -8,7 +8,7 @@ cd "$(dirname "$0")/../"
 
 # `goversioninfo`'s parser requires the version to start with x.y.z digits,
 # so the leading `v` from git tags is stripped here.
-version=$(git describe --tags | sed -e 's/-.*//' -e 's/^v//')
+version=$(git describe --tags | sed -e 's/^v//' | sed -e 's/-[0-9]*-g/-/')
 
 for arch in 386 amd64; do
 	bits=true
@@ -23,3 +23,5 @@ for arch in 386 amd64; do
 		-o "rc_windows_${arch}.syso" \
 		<(echo '{}')
 done
+
+# xattr -dr com.apple.quarantine ghfs-gui-darwin-ARCH.app
