@@ -10,11 +10,13 @@ cd "$(dirname "$0")/../"
 # so the leading `v` from git tags is stripped here.
 version=$(git describe --tags | sed -e 's/^v//' | sed -e 's/-[0-9]*-g/-/')
 
-for arch in 386 amd64; do
-	bits=true
-	[ "$arch" = "386" ] && bits=false
+for arch in 386 amd64 arm64; do
+	bits64=false arm=false
+	[[ $arch == *64 ]] && bits64=true
+	[[ $arch == arm* ]] && arm=true
 	go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest \
-		-64="$bits" \
+		-64="$bits64" \
+		-arm="$arm" \
 		-icon Icon.ico \
 		-product-name "Go HTTP File Server GUI" \
 		-product-version "$version" \
