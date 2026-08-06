@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -29,12 +29,15 @@ jobs:
           git checkout "$TAG"
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: stable
 
       - name: Build all targets
         run: bash build/build-all.sh
+
+      - name: Package Linux distro packages (.deb, .rpm, Arch, apk)
+        run: bash build/pack-linux.sh
 
       - name: Package MacOS apps
         run: bash build/pack-darwin.sh

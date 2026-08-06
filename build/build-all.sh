@@ -18,7 +18,7 @@ build() {
 
 build linux   amd64
 build linux   arm64
-build windows 386
+#build windows 386
 build windows amd64
 build windows arm64
 build darwin  amd64

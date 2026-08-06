@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Go HTTP File Server GUI
+Comment=Share local files over HTTP
+Exec=ghfs-gui
+Icon=ghfs-gui
+Terminal=false
+Categories=Network;FileTransfer;
+Keywords=http;file;server;share;
