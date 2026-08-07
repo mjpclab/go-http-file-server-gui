@@ -23,6 +23,7 @@ pack() {
 
 	local app_name='Go HTTP File Server GUI.app'
 	local app_path="output/${app_name}"
+	# xattr -dr com.apple.quarantine "${app_path}"
 
 	local zip_name="${bin_name}.zip"
 

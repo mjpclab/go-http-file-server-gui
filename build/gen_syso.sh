@@ -7,8 +7,9 @@ set -e
 cd "$(dirname "$0")/../"
 
 # `goversioninfo`'s parser requires the version to start with x.y.z digits,
-# so the leading `v` from git tags is stripped here.
-version=$(git describe --tags | sed -e 's/^v//' | sed -e 's/-[0-9]*-g/-/')
+# so the leading `v` from git tags is stripped here. No `--abbrev=0`: the
+# pre-release suffix is kept. Override with VERSION= for untagged builds.
+VERSION="${VERSION:-$(git describe --tags | sed -e 's/^v//' | sed -e 's/-[0-9]*-g/-/')}"
 
 for arch in 386 amd64 arm64; do
 	bits64=false arm=false
@@ -19,11 +20,9 @@ for arch in 386 amd64 arm64; do
 		-arm="$arm" \
 		-icon Icon.ico \
 		-product-name "Go HTTP File Server GUI" \
-		-product-version "$version" \
-		-file-version "$version" \
+		-product-version "$VERSION" \
+		-file-version "$VERSION" \
 		-propagate-ver-strings \
 		-o "rc_windows_${arch}.syso" \
 		<(echo '{}')
 done
-
-# xattr -dr com.apple.quarantine ghfs-gui-darwin-ARCH.app
