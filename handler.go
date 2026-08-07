@@ -13,7 +13,18 @@ import (
 
 func attachHandlers(widgets *uiWidgets) {
 	attachBrowseHandlers(widgets)
+	attachGlobalPermHandlers(widgets)
+	attachDirHandlers(widgets)
 	attachStartStopHandlers(widgets)
+}
+
+// attachGlobalPermHandlers keeps the Directory tab in step with the General
+// tab: a globally granted permission cannot be revoked per-directory, so the
+// matching per-directory checkbutton has to show that.
+func attachGlobalPermHandlers(widgets *uiWidgets) {
+	for _, cb := range widgets.globalPerms {
+		cb.Configure(Command(func() { widgets.dir.updateSelection() }))
+	}
 }
 
 func attachBrowseHandlers(widgets *uiWidgets) {
@@ -57,7 +68,7 @@ func attachStartStopHandlers(widgets *uiWidgets) {
 				if len(openErrs) > 0 {
 					showErrors(openErrs)
 				}
-				clearLinks(widgets)
+				showLinksPlaceholder(widgets.links)
 				widgets.stop.Configure(State("disabled"))
 				setInputsEnabled(widgets, true)
 				widgets.start.Configure(State("normal"))
@@ -81,6 +92,12 @@ func createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 		certKeyPaths = [][2]string{{cert, key}}
 	}
 
+	// Directory grants go through the *Dirs fields rather than the *Urls ones.
+	// With a single root ghfs makes the two equivalent (param.NewParams turns
+	// Root into the alias {"/", Root}, and fsPath is just dir+urlPath), but a
+	// filesystem path names the directory itself: it stays correct if aliases
+	// or vhosts are ever added, and it cannot silently follow Root elsewhere.
+	perms := widgets.dir.perms
 	params, errs := param.NewParams([]param.Param{{
 		Listens:       []string{widgets.listen.Textvariable()},
 		IndexUrls:     []string{"/"},
@@ -90,6 +107,10 @@ func createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 		GlobalUpload:  widgets.upload.Get() == "1",
 		GlobalMkdir:   widgets.mkdir.Get() == "1",
 		GlobalDelete:  widgets.del.Get() == "1",
+		ArchiveDirs:   perms.dirsWith(permArchive),
+		UploadDirs:    perms.dirsWith(permUpload),
+		MkdirDirs:     perms.dirsWith(permMkdir),
+		DeleteDirs:    perms.dirsWith(permDelete),
 		CertKeyPaths:  certKeyPaths,
 	}})
 	if len(errs) > 0 {
@@ -101,11 +122,16 @@ func createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 }
 
 func createLinks(appInst *app.App, widgets *uiWidgets) {
-	clearLinks(widgets)
+	clearLinkChildren(widgets.links)
 	accessOrigins := appInst.GetAccessibleUrls(false)
 	if len(accessOrigins) == 0 {
+		showLinksPlaceholder(widgets.links)
 		return
 	}
+
+	// The URLs are what the user came for once the server is up, and the Links
+	// tab may not be the one on screen — bring it forward.
+	widgets.nb.Select(widgets.links)
 
 	for _, origin := range accessOrigins[0] {
 		if _, err := url.Parse(origin); err != nil {
@@ -119,12 +145,6 @@ func createLinks(appInst *app.App, widgets *uiWidgets) {
 			}
 		}))
 		Pack(lbl, Anchor("w"), Pady("1"))
-	}
-}
-
-func clearLinks(widgets *uiWidgets) {
-	for _, child := range WinfoChildren(widgets.links.Window) {
-		Destroy(child)
 	}
 }
 
@@ -142,6 +162,7 @@ func setInputsEnabled(widgets *uiWidgets, enabled bool) {
 	for _, w := range widgets.lockedControls {
 		w.Configure(State(ctrlState))
 	}
+	widgets.dir.setLocked(!enabled)
 }
 
 func showErrors(errs []error) {

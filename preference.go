@@ -17,6 +17,9 @@ type preference struct {
 	Del     bool   `json:"del"`
 	Cert    string `json:"cert"`
 	Key     string `json:"key"`
+	// DirPerms maps an absolute directory path to the permissions granted on
+	// it, e.g. {"/srv/share/pub": ["archive", "upload"]}.
+	DirPerms map[string][]string `json:"dirPerms"`
 }
 
 func preferencePath() (string, error) {
@@ -43,18 +46,29 @@ func loadPreference(widgets *uiWidgets) {
 	setChecked(widgets.del, pref.Del)
 	widgets.tlsCert.Configure(Textvariable(pref.Cert))
 	widgets.tlsKey.Configure(Textvariable(pref.Key))
+
+	// Grants name absolute paths, so drop any that the saved root no longer
+	// covers or that have since disappeared. The tree itself is left unbuilt:
+	// shownRoot stays empty, so it is populated the first time the Directory
+	// tab is opened, and never for users who don't go there.
+	widgets.dir.perms = dirPermsFromJSON(pref.DirPerms)
+	widgets.dir.perms.prune(pref.Root)
 }
 
 func savePreference(widgets *uiWidgets) {
+	root := widgets.root.Textvariable()
+	widgets.dir.perms.prune(root)
+
 	pref := preference{
-		Root:    widgets.root.Textvariable(),
-		Listen:  widgets.listen.Textvariable(),
-		Archive: widgets.archive.Get() == "1",
-		Upload:  widgets.upload.Get() == "1",
-		Mkdir:   widgets.mkdir.Get() == "1",
-		Del:     widgets.del.Get() == "1",
-		Cert:    widgets.tlsCert.Textvariable(),
-		Key:     widgets.tlsKey.Textvariable(),
+		Root:     root,
+		Listen:   widgets.listen.Textvariable(),
+		Archive:  widgets.archive.Get() == "1",
+		Upload:   widgets.upload.Get() == "1",
+		Mkdir:    widgets.mkdir.Get() == "1",
+		Del:      widgets.del.Get() == "1",
+		Cert:     widgets.tlsCert.Textvariable(),
+		Key:      widgets.tlsKey.Textvariable(),
+		DirPerms: widgets.dir.perms.toJSON(),
 	}
 
 	path, err := preferencePath()

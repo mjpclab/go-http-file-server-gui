@@ -38,11 +38,14 @@ func applySystemTheme() {
 var iconPNG []byte
 
 const (
-	winWidth, winHeight = 650, 400
-	minWidth, minHeight = 500, 300
+	// The Directory tab's tree needs the extra room; winHeight has to stay
+	// above minHeight or the window opens already clamped to its minimum.
+	winWidth, winHeight = 650, 520
+	minWidth, minHeight = 500, 420
 )
 
 type uiWidgets struct {
+	nb       *TNotebookWidget
 	root     *TEntryWidget
 	rootPick *TButtonWidget
 	listen   *TEntryWidget
@@ -50,6 +53,10 @@ type uiWidgets struct {
 	upload   *VariableOpt
 	mkdir    *VariableOpt
 	del      *VariableOpt
+	// globalPerms are the four General tab checkbuttons, in permOrder.
+	globalPerms [4]*TCheckbuttonWidget
+
+	dir *dirTab
 
 	tlsCert     *TEntryWidget
 	tlsCertPick *TButtonWidget
@@ -103,6 +110,9 @@ func newUI() *uiWidgets {
 	Grid(options, Row(2), Column(1), Columnspan(2), Sticky("w"), Padx("1m"), Pady("1m"))
 	GridColumnConfigure(general, 1, Weight(1))
 
+	// Directory tab
+	dir := newDirTab(nb.Window)
+
 	// Advanced tab
 	advanced := nb.TFrame(Padding("2m"))
 	tlsCert := advanced.TEntry(Textvariable(""))
@@ -113,11 +123,14 @@ func newUI() *uiWidgets {
 	formRow(advanced.Window, 1, "TLS Key", tlsKey, tlsKeyPick)
 	GridColumnConfigure(advanced, 1, Weight(1))
 
-	nb.Add(general, Txt("General"))
-	nb.Add(advanced, Txt("Advanced"))
+	// Links tab: clickable URLs, populated after the server starts.
+	links := nb.TFrame(Padding("2m"))
+	showLinksPlaceholder(links)
 
-	// links list (clickable, populated after server starts)
-	links := TFrame(Padding("2m"))
+	nb.Add(general, Txt("General"))
+	nb.Add(dir.frame, Txt("Directory"))
+	nb.Add(advanced, Txt("Advanced"))
+	nb.Add(links, Txt("Links"))
 
 	// buttons
 	start := TButton(Txt("Start server"))
@@ -125,14 +138,14 @@ func newUI() *uiWidgets {
 
 	// main layout
 	Grid(nb, Row(0), Column(0), Columnspan(2), Sticky("news"), Padx("1m"), Pady("1m"))
-	Grid(links, Row(1), Column(0), Columnspan(2), Sticky("news"), Padx("1m"), Pady("1m"))
-	Grid(start, Row(2), Column(0), Sticky("we"), Padx("1m"), Pady("1m"))
-	Grid(stop, Row(2), Column(1), Sticky("we"), Padx("1m"), Pady("1m"))
-	GridRowConfigure(App, 1, Weight(1))
+	Grid(start, Row(1), Column(0), Sticky("we"), Padx("1m"), Pady("1m"))
+	Grid(stop, Row(1), Column(1), Sticky("we"), Padx("1m"), Pady("1m"))
+	GridRowConfigure(App, 0, Weight(1))
 	GridColumnConfigure(App, 0, Weight(1))
 	GridColumnConfigure(App, 1, Weight(1))
 
 	return &uiWidgets{
+		nb:       nb,
 		root:     root,
 		rootPick: rootPick,
 		listen:   listen,
@@ -140,6 +153,10 @@ func newUI() *uiWidgets {
 		upload:   uploadVar,
 		mkdir:    mkdirVar,
 		del:      delVar,
+
+		globalPerms: [4]*TCheckbuttonWidget{archive, upload, mkdir, del},
+
+		dir: dir,
 
 		tlsCert:     tlsCert,
 		tlsCertPick: tlsCertPick,
@@ -154,12 +171,35 @@ func newUI() *uiWidgets {
 		lockedInputs: []*Window{
 			root.Window, listen.Window, tlsCert.Window, tlsKey.Window,
 		},
+		// Two Directory tab widgets are deliberately absent here.
+		// The tree: ttk::treeview has no -state option, so configuring one
+		// raises a Tcl error, which tk9.0 turns into a panic. It needs no
+		// locking anyway — browsing and expanding change no configuration, and
+		// the checkbuttons that do are disabled while the server runs.
+		// The checkbuttons: their enabled state depends on global and inherited
+		// grants, so dirTab.setLocked drives them through updateSelection
+		// rather than a blanket re-enable.
 		lockedControls: []*Window{
 			rootPick.Window,
 			archive.Window, upload.Window, mkdir.Window, del.Window,
+			dir.refresh.Window,
 			tlsCertPick.Window, tlsKeyPick.Window,
 		},
 	}
+}
+
+func clearLinkChildren(links *TFrameWidget) {
+	for _, child := range WinfoChildren(links.Window) {
+		Destroy(child)
+	}
+}
+
+// showLinksPlaceholder puts a note where the URLs go. The Links tab is always
+// visible, so leaving it blank while the server is stopped would read as a bug
+// rather than as "nothing to show yet".
+func showLinksPlaceholder(links *TFrameWidget) {
+	clearLinkChildren(links)
+	Pack(links.TLabel(Txt("Server is not running.")), Anchor("w"), Pady("1"))
 }
 
 // formRow lays out a "label : entry [...]" row in a form-style grid.
