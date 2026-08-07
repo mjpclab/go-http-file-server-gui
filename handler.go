@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
+	"strconv"
 
 	"mjpclab.dev/ghfs/src/app"
 	"mjpclab.dev/ghfs/src/param"
@@ -12,10 +13,39 @@ import (
 )
 
 func attachHandlers(widgets *uiWidgets) {
+	attachWindowHandlers(widgets)
 	attachBrowseHandlers(widgets)
 	attachGlobalPermHandlers(widgets)
 	attachDirHandlers(widgets)
 	attachStartStopHandlers(widgets)
+}
+
+// attachWindowHandlers records the toplevel's size as the user resizes it.
+// savePreference runs after App.Wait returns — the window is gone by then, and
+// winfo on a destroyed window raises a Tcl error, which tk9.0 turns into a
+// panic — so the size has to be captured while the window still exists.
+func attachWindowHandlers(widgets *uiWidgets) {
+	Bind(App, "<Configure>", Command(func(e *Event) {
+		// A child widget's bindtags include its toplevel, so this binding also
+		// fires for every child resize; only the toplevel's own size is wanted.
+		if e.EventWindow != App {
+			return
+		}
+		// While maximized the reported size is the screen's. Keeping the last
+		// normal size instead means un-maximizing — now or on the next launch —
+		// goes back to the size the user actually chose.
+		widgets.winMax = isMaximized(App)
+		if widgets.winMax {
+			return
+		}
+		w, errW := strconv.Atoi(e.Width)
+		h, errH := strconv.Atoi(e.Height)
+		// Tk reports 1x1 for a window that has not been mapped yet.
+		if errW != nil || errH != nil || w <= 1 || h <= 1 {
+			return
+		}
+		widgets.winW, widgets.winH = w, h
+	}))
 }
 
 // attachGlobalPermHandlers keeps the Directory tab in step with the General

@@ -68,6 +68,12 @@ type uiWidgets struct {
 	start *TButtonWidget
 	stop  *TButtonWidget
 
+	// winW/winH track the toplevel's size while it is not maximized, winMax
+	// whether it is; savePreference writes both. See attachWindowHandlers for
+	// why they are tracked rather than read back on demand.
+	winW, winH int
+	winMax     bool
+
 	// While the server runs, inputs become readonly (still selectable/
 	// copyable, not greyed) and non-text controls become disabled.
 	lockedInputs   []*Window
@@ -77,7 +83,7 @@ type uiWidgets struct {
 func newUI() *uiWidgets {
 	App.WmTitle("Go HTTP File Server GUI")
 	WmMinSize(App, minWidth, minHeight)
-	centerWindow(App)
+	resizeWindow(App, winWidth, winHeight)
 	App.IconPhoto(NewPhoto(Data(iconPNG)))
 
 	nb := TNotebook()
@@ -168,6 +174,9 @@ func newUI() *uiWidgets {
 		start: start,
 		stop:  stop,
 
+		winW: winWidth,
+		winH: winHeight,
+
 		lockedInputs: []*Window{
 			root.Window, listen.Window, tlsCert.Window, tlsKey.Window,
 		},
@@ -209,13 +218,14 @@ func formRow(parent *Window, row int, label string, entry *TEntryWidget, pick *T
 	Grid(pick, Row(row), Column(2), Padx("1m"), Pady("1m"))
 }
 
-// centerWindow sizes the window and positions it at the center of the screen.
-// The window size is fixed and known, so the geometry can be computed from
-// constants without forcing a full event loop update to read back winfo.
-func centerWindow(w *Window) {
+// resizeWindow sizes the window and re-centers it on the screen. The size is
+// passed in rather than read back with winfo, so no event loop round-trip is
+// needed. Setting an explicit geometry also switches off tk9.0's own centering,
+// which App.Wait would otherwise apply once the window is mapped.
+func resizeWindow(w *Window, width, height int) {
 	sw, _ := strconv.Atoi(WinfoScreenWidth(w))
 	sh, _ := strconv.Atoi(WinfoScreenHeight(w))
-	x := (sw - winWidth) / 2
-	y := (sh - winHeight) / 2
-	WmGeometry(w, fmt.Sprintf("%dx%d+%d+%d", winWidth, winHeight, x, y))
+	x := (sw - width) / 2
+	y := (sh - height) / 2
+	WmGeometry(w, fmt.Sprintf("%dx%d+%d+%d", width, height, x, y))
 }

@@ -6,6 +6,7 @@ import (
 )
 
 func main() {
+	initTcl()
 	applySystemTheme()
 	widgets := newUI()
 	loadPreference(widgets)

@@ -20,6 +20,13 @@ type preference struct {
 	// DirPerms maps an absolute directory path to the permissions granted on
 	// it, e.g. {"/srv/share/pub": ["archive", "upload"]}.
 	DirPerms map[string][]string `json:"dirPerms"`
+	// Width/Height are the window size in pixels while it is not maximized;
+	// zero means "never saved", in which case the built-in default size is
+	// kept. Maximized is restored on top of that size, so un-maximizing after
+	// a restart lands on the same size as before.
+	Width     int  `json:"width"`
+	Height    int  `json:"height"`
+	Maximized bool `json:"maximized"`
 }
 
 func preferencePath() (string, error) {
@@ -53,6 +60,18 @@ func loadPreference(widgets *uiWidgets) {
 	// tab is opened, and never for users who don't go there.
 	widgets.dir.perms = dirPermsFromJSON(pref.DirPerms)
 	widgets.dir.perms.prune(pref.Root)
+
+	// The saved size is clamped rather than trusted: a hand-edited or truncated
+	// file should not be able to open a window too small to operate.
+	if pref.Width > 0 && pref.Height > 0 {
+		widgets.winW = max(pref.Width, minWidth)
+		widgets.winH = max(pref.Height, minHeight)
+		resizeWindow(App, widgets.winW, widgets.winH)
+	}
+	if pref.Maximized {
+		widgets.winMax = true
+		maximizeWhenMapped(App)
+	}
 }
 
 func savePreference(widgets *uiWidgets) {
@@ -60,15 +79,18 @@ func savePreference(widgets *uiWidgets) {
 	widgets.dir.perms.prune(root)
 
 	pref := preference{
-		Root:     root,
-		Listen:   widgets.listen.Textvariable(),
-		Archive:  widgets.archive.Get() == "1",
-		Upload:   widgets.upload.Get() == "1",
-		Mkdir:    widgets.mkdir.Get() == "1",
-		Del:      widgets.del.Get() == "1",
-		Cert:     widgets.tlsCert.Textvariable(),
-		Key:      widgets.tlsKey.Textvariable(),
-		DirPerms: widgets.dir.perms.toJSON(),
+		Root:      root,
+		Listen:    widgets.listen.Textvariable(),
+		Archive:   widgets.archive.Get() == "1",
+		Upload:    widgets.upload.Get() == "1",
+		Mkdir:     widgets.mkdir.Get() == "1",
+		Del:       widgets.del.Get() == "1",
+		Cert:      widgets.tlsCert.Textvariable(),
+		Key:       widgets.tlsKey.Textvariable(),
+		DirPerms:  widgets.dir.perms.toJSON(),
+		Width:     widgets.winW,
+		Height:    widgets.winH,
+		Maximized: widgets.winMax,
 	}
 
 	path, err := preferencePath()
