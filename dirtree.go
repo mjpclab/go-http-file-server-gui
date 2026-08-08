@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -19,7 +20,7 @@ type dirTab struct {
 	frame   *TFrameWidget
 	tree    *TTreeviewWidget
 	refresh *TButtonWidget
-	pathLbl *TLabelWidget
+	pathEnt *TEntryWidget
 	vars    [4]*VariableOpt
 	checks  [4]*TCheckbuttonWidget
 	hints   [4]*TLabelWidget
@@ -88,8 +89,12 @@ func newDirTab(parent *Window) *dirTab {
 
 	// Right: permissions for the selected directory.
 	right := pane.TFrame(Padding("2m"))
-	d.pathLbl = right.TLabel(Txt(noDirSelected))
-	Grid(d.pathLbl, Row(0), Column(0), Columnspan(2), Sticky("w"), Pady("1m"))
+	// A readonly entry rather than a label: a deep path is wider than the pane,
+	// and an entry can be scrolled sideways and copied out. Its requested width
+	// is what the paned window sizes this side from, so it is stated in
+	// characters rather than left to the (much longer) path text.
+	d.pathEnt = right.TEntry(Textvariable(noDirSelected), State("readonly"), Width(24))
+	Grid(d.pathEnt, Row(0), Column(0), Columnspan(2), Sticky("we"), Pady("1m"))
 	for i, bit := range permOrder {
 		v := Variable("0")
 		d.vars[i] = v
@@ -464,7 +469,7 @@ func (d *dirTab) refreshAbbrs() {
 // letting the user clear such a box would promise a revocation that cannot happen.
 func (d *dirTab) updateSelection() {
 	if d.sel == "" {
-		d.pathLbl.Configure(Txt(noDirSelected))
+		d.setPath(noDirSelected)
 		for i := range d.checks {
 			setChecked(d.vars[i], false)
 			d.checks[i].Configure(State("disabled"))
@@ -473,7 +478,7 @@ func (d *dirTab) updateSelection() {
 		return
 	}
 
-	d.pathLbl.Configure(Txt(d.sel))
+	d.setPath(d.sel)
 	own := d.perms.get(d.sel)
 	inherited, from := d.perms.inherited(d.sel)
 
@@ -498,6 +503,15 @@ func (d *dirTab) updateSelection() {
 		d.checks[i].Configure(State(state))
 		d.hints[i].Configure(Txt(hint))
 	}
+}
+
+// setPath shows a path in the readonly entry, scrolled back to its start: the
+// entry keeps the horizontal offset it had when the text changes, which would
+// leave a newly selected path showing from somewhere in its middle. tk9.0 wraps
+// xview only for TextWidget, hence the raw Tcl call.
+func (d *dirTab) setPath(path string) {
+	d.pathEnt.Configure(Textvariable(path))
+	tclEval(fmt.Sprintf("%s xview 0", d.pathEnt))
 }
 
 // setDirTabLocked freezes the right pane while the server runs. The tree and
