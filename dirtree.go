@@ -141,6 +141,8 @@ func attachDirHandlers(widgets *uiWidgets) {
 		}
 	}))
 
+	swallowExtraClicks(d.tree)
+
 	Bind(d.tree, "<Key>", Command(func(e *Event) { d.typeAhead(e.Char) }))
 
 	// A notebook unmaps the tab it leaves, so <Map> fires whenever the Directory
@@ -184,6 +186,19 @@ func attachDirHandlers(widgets *uiWidgets) {
 			d.rebuild(root, false)
 		}
 	}))
+}
+
+// swallowExtraClicks stops a fast click sequence past the second click from
+// toggling the row again. ttk::treeview binds <Button-1> and <Double-Button-1>
+// but nothing longer, and Tk falls back to the <Double-Button-1> binding for
+// the third and every following click of a rapid sequence — so double-clicking
+// a directory twice in a row expands and immediately collapses it. The break
+// has to sit on the widget's own bindtag, which Tk runs before the class one;
+// tk9.0's Bind cannot return break, hence the raw Tcl. Quadruple covers the
+// fifth click onwards too, since Tk counts no higher.
+func swallowExtraClicks(w Widget) {
+	tclEval(fmt.Sprintf("bind %s <Triple-Button-1> {break}", w))
+	tclEval(fmt.Sprintf("bind %s <Quadruple-Button-1> {break}", w))
 }
 
 // rebuild reconstructs the tree from root. With keepState the expansion,
