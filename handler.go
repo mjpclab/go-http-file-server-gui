@@ -87,6 +87,7 @@ func attachStartStopHandlers(widgets *uiWidgets) {
 			return
 		}
 		appInst = inst
+		savePreference(widgets)
 		widgets.start.Configure(State("disabled"))
 		widgets.stop.Configure(State("normal"))
 		setInputsEnabled(widgets, false)
