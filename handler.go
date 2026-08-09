@@ -168,13 +168,8 @@ func createLinks(appInst *app.App, widgets *uiWidgets) {
 		if _, err := url.Parse(origin); err != nil {
 			continue
 		}
-		origin := origin
 		lbl := widgets.links.TLabel(Txt(origin), Cursor("hand2"), Style("Link.TLabel"))
-		Bind(lbl, "<Button-1>", Command(func() {
-			if err := openBrowser(origin); err != nil {
-				fmt.Println(err)
-			}
-		}))
+		bindLink(lbl, origin)
 		Pack(lbl, Anchor("w"), Pady("1"))
 	}
 }

@@ -81,7 +81,7 @@ type uiWidgets struct {
 }
 
 func newUI() *uiWidgets {
-	App.WmTitle("Go HTTP File Server GUI")
+	App.WmTitle(appName)
 	WmMinSize(App, minWidth, minHeight)
 	resizeWindow(App, winWidth, winHeight)
 	App.IconPhoto(NewPhoto(Data(iconPNG)))
@@ -133,10 +133,14 @@ func newUI() *uiWidgets {
 	links := nb.TFrame(Padding("2m"))
 	showLinksPlaceholder(links)
 
+	// About tab: static version information, no state and no handlers.
+	about := newAboutTab(nb.Window)
+
 	nb.Add(general, Txt("General"))
 	nb.Add(dir.frame, Txt("Directory"))
 	nb.Add(advanced, Txt("Advanced"))
 	nb.Add(links, Txt("Links"))
+	nb.Add(about, Txt("About"))
 
 	// buttons
 	start := TButton(Txt("Start server"))
