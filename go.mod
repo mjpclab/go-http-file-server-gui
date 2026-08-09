@@ -3,7 +3,7 @@ module mjpclab.dev/ghfs-gui
 go 1.25.0
 
 require (
-	mjpclab.dev/ghfs v1.21.6
+	mjpclab.dev/ghfs v1.21.7
 	modernc.org/tk9.0 v1.76.1
 )
 
