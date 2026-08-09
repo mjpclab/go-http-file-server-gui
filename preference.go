@@ -66,11 +66,11 @@ func loadPreference(widgets *uiWidgets) {
 	if pref.Width > 0 && pref.Height > 0 {
 		widgets.winW = max(pref.Width, minWidth)
 		widgets.winH = max(pref.Height, minHeight)
-		resizeWindow(App, widgets.winW, widgets.winH)
+		resizeWindow(widgets.win, widgets.winW, widgets.winH)
 	}
 	if pref.Maximized {
 		widgets.winMax = true
-		maximizeWhenMapped(App)
+		maximizeWhenMapped(widgets.win)
 	}
 }
 

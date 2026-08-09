@@ -4,6 +4,8 @@ Name=Go HTTP File Server GUI
 Comment=Share local files over HTTP
 Exec=ghfs-gui
 Icon=ghfs-gui
+# Matches the toplevel's WM_CLASS class name (wmClass in ui.go).
+StartupWMClass=ghfs-gui
 Terminal=false
 StartupNotify=false
 Categories=Network;FileTransfer;

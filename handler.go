@@ -25,16 +25,16 @@ func attachHandlers(widgets *uiWidgets) {
 // winfo on a destroyed window raises a Tcl error, which tk9.0 turns into a
 // panic — so the size has to be captured while the window still exists.
 func attachWindowHandlers(widgets *uiWidgets) {
-	Bind(App, "<Configure>", Command(func(e *Event) {
+	Bind(widgets.win, "<Configure>", Command(func(e *Event) {
 		// A child widget's bindtags include its toplevel, so this binding also
 		// fires for every child resize; only the toplevel's own size is wanted.
-		if e.EventWindow != App {
+		if e.EventWindow != widgets.win {
 			return
 		}
 		// While maximized the reported size is the screen's. Keeping the last
 		// normal size instead means un-maximizing — now or on the next launch —
 		// goes back to the size the user actually chose.
-		widgets.winMax = isMaximized(App)
+		widgets.winMax = isMaximized(widgets.win)
 		if widgets.winMax {
 			return
 		}
@@ -58,19 +58,21 @@ func attachGlobalPermHandlers(widgets *uiWidgets) {
 }
 
 func attachBrowseHandlers(widgets *uiWidgets) {
+	// The dialogs are parented explicitly: their default parent is ".", which is
+	// withdrawn, and they would center on an off-screen window.
 	widgets.rootPick.Configure(Command(func() {
-		dir := ChooseDirectory(Initialdir(widgets.root.Textvariable()))
+		dir := ChooseDirectory(Initialdir(widgets.root.Textvariable()), Parent(widgets.win))
 		if dir != "" {
 			widgets.root.Configure(Textvariable(dir))
 		}
 	}))
-	attachFilePickHandler(widgets.tlsCertPick, widgets.tlsCert)
-	attachFilePickHandler(widgets.tlsKeyPick, widgets.tlsKey)
+	attachFilePickHandler(widgets.win, widgets.tlsCertPick, widgets.tlsCert)
+	attachFilePickHandler(widgets.win, widgets.tlsKeyPick, widgets.tlsKey)
 }
 
-func attachFilePickHandler(button *TButtonWidget, entry *TEntryWidget) {
+func attachFilePickHandler(parent *Window, button *TButtonWidget, entry *TEntryWidget) {
 	button.Configure(Command(func() {
-		files := GetOpenFile(Initialdir(filepath.Dir(entry.Textvariable())))
+		files := GetOpenFile(Initialdir(filepath.Dir(entry.Textvariable())), Parent(parent))
 		if len(files) > 0 && len(files[0]) > 0 {
 			entry.Configure(Textvariable(files[0]))
 		}

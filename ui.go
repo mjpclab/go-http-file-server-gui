@@ -42,9 +42,17 @@ const (
 	// above minHeight or the window opens already clamped to its minimum.
 	winWidth, winHeight = 650, 520
 	minWidth, minHeight = 500, 420
+
+	// wmClass is the main window's WM_CLASS class name. Desktop shells match it
+	// against StartupWMClass in build/ghfs-gui.desktop, so the two have to stay
+	// equal. See newMainWindow.
+	wmClass = "ghfs-gui"
 )
 
 type uiWidgets struct {
+	// win is the toplevel the form lives in — not App. See newMainWindow.
+	win *Window
+
 	nb       *TNotebookWidget
 	root     *TEntryWidget
 	rootPick *TButtonWidget
@@ -80,13 +88,38 @@ type uiWidgets struct {
 	lockedControls []*Window
 }
 
-func newUI() *uiWidgets {
-	App.WmTitle(appName)
-	WmMinSize(App, minWidth, minHeight)
-	resizeWindow(App, winWidth, winHeight)
-	App.IconPhoto(NewPhoto(Data(iconPNG)))
+// newMainWindow returns the toplevel the form is built in. It is a child of "."
+// rather than "." itself so that it can carry a -class: Tk derives "."'s
+// WM_CLASS when the interpreter starts and offers no way in, so it stays
+// "tk"/"Tk" — and a second instance on the same display becomes "tk #2". A
+// desktop shell that cannot map either name to ghfs-gui.desktop has to guess an
+// icon and files every instance under a task entry of its own. The class below
+// matches the desktop entry, identically for every instance. "." is kept only as
+// the withdrawn root that App.Wait watches.
+func newMainWindow() *Window {
+	win := App.Toplevel(Class(wmClass)).Window
+	WmWithdraw(App)
+	// Closing the visible window has to take "." down with it, or App.Wait would
+	// keep the process alive with nothing on screen.
+	WmProtocol(win, "WM_DELETE_WINDOW", Command(func() { Destroy(App) }))
 
-	nb := TNotebook()
+	win.WmTitle(appName)
+	WmMinSize(win, minWidth, minHeight)
+	resizeWindow(win, winWidth, winHeight)
+
+	icon := NewPhoto(Data(iconPNG))
+	win.IconPhoto(icon)
+	// "." is never shown, but claiming its icon too keeps App.Wait from applying
+	// tk9.0's own default one.
+	App.IconPhoto(icon)
+
+	return win
+}
+
+func newUI() *uiWidgets {
+	win := newMainWindow()
+
+	nb := win.TNotebook()
 
 	// General tab
 	general := nb.TFrame(Padding("2m"))
@@ -143,18 +176,20 @@ func newUI() *uiWidgets {
 	nb.Add(about, Txt("About"))
 
 	// buttons
-	start := TButton(Txt("Start server"))
-	stop := TButton(Txt("Stop server"), State("disabled"))
+	start := win.TButton(Txt("Start server"))
+	stop := win.TButton(Txt("Stop server"), State("disabled"))
 
 	// main layout
 	Grid(nb, Row(0), Column(0), Columnspan(2), Sticky("news"), Padx("1m"), Pady("1m"))
 	Grid(start, Row(1), Column(0), Sticky("we"), Padx("1m"), Pady("1m"))
 	Grid(stop, Row(1), Column(1), Sticky("we"), Padx("1m"), Pady("1m"))
-	GridRowConfigure(App, 0, Weight(1))
-	GridColumnConfigure(App, 0, Weight(1))
-	GridColumnConfigure(App, 1, Weight(1))
+	GridRowConfigure(win, 0, Weight(1))
+	GridColumnConfigure(win, 0, Weight(1))
+	GridColumnConfigure(win, 1, Weight(1))
 
 	return &uiWidgets{
+		win: win,
+
 		nb:       nb,
 		root:     root,
 		rootPick: rootPick,
