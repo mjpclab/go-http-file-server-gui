@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -17,10 +20,14 @@ jobs:
           fetch-tags: true
           persist-credentials: false
 
-      - name: Resolve latest tag
+      - name: Resolve tag
         id: tag
         run: |
-          TAG=$(git describe --tags --abbrev=0)
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            TAG=$(git describe --tags --abbrev=0)
+          fi
           if [ -z "$TAG" ]; then
             echo "no tags found" >&2
             exit 1
