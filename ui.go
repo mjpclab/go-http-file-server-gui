@@ -32,6 +32,47 @@ func applySystemTheme() {
 
 	linkFont := NewFont(Family("TkDefaultFont"), Underline(true))
 	StyleConfigure("Link.TLabel", Foreground(linkColor), Font(linkFont))
+
+	useBuiltinTreeIndicator()
+}
+
+// treeIndicator is the name Tk's own Treeitem.indicator is borrowed under. Two
+// constraints, both easy to break by renaming:
+//
+//   - No dot. Ttk_GetElement resolves "a.b.c" by retrying after each dot, so
+//     anything ending in ".indicator" finds azure's element again.
+//   - Must end in a lowercase "indicator", which ttk::treeview::Press
+//     glob-matches to decide whether a click toggles the row. Break this and the
+//     arrow still flips, but only double-click expands — DoubleClick toggles
+//     without consulting the element name, so the breakage hides.
+const treeIndicator = "ghfsTreeindicator"
+
+// useBuiltinTreeIndicator fixes the Directory tab's expand arrows, which
+// otherwise always point right.
+//
+// azure keys Treeitem.indicator on the user1/user2 states — how Tk 8.6 spelled
+// "open" and "leaf". Tk 9.0 gave both bits of their own (ttkThemeInt.h: 1<<16,
+// 1<<17) and no state name for either, so the theme's map never matches. Tk's
+// own indicator is a C element reading the new bits, so borrow it and point the
+// item layout there. Runs after ActivateTheme: elements belong to the theme
+// current when they are created.
+//
+// Colour needs no configuring — treeview feeds each row's -foreground into the
+// element, outranking its black default.
+//
+// Not removable until tk9.0 bundles Tk 9.1+, where "open"/"leaf" became real
+// state names, and azure switches to them; azure has had no commit since
+// October 2023. It will not block a Tk upgrade, but will not stand aside once
+// azure is fixed either — the layout override is unconditional.
+func useBuiltinTreeIndicator() {
+	tclEval(fmt.Sprintf("ttk::style element create %s from default Treeitem.indicator", treeIndicator))
+	tclEval(fmt.Sprintf(`ttk::style layout Treeview.Item {
+		Treeitem.padding -sticky nswe -children {
+			%s -side left -sticky {}
+			Treeitem.image -side left -sticky {}
+			Treeitem.text -side left -sticky {}
+		}
+	}`, treeIndicator))
 }
 
 //go:embed Icon.png

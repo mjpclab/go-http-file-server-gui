@@ -47,6 +47,24 @@ type dirTab struct {
 
 const noDirSelected = "(no directory selected)"
 
+// A directory with nothing to list still gets one of these rows, which is what
+// keeps its expand arrow. ttk::treeview draws no indicator for an item without
+// children — ItemState derives TTK_STATE_LEAF from the child list alone — so an
+// expanded empty directory would otherwise lose its arrow and read as "not
+// expandable" rather than "expanded, and there is nothing inside".
+const (
+	hintEmpty      = "(no subdirectories)"
+	hintUnreadable = "(cannot be read)"
+)
+
+// hintTag marks those rows. They are labels, not directories: they carry no
+// entry in dirTab.paths, and skipHintRows keeps the selection off them.
+// hintTestProc is the Tcl helper the bindings there test the tag with.
+const (
+	hintTag      = "hint"
+	hintTestProc = "ghfsIsHintRow"
+)
+
 // typeAheadTimeout matches Tk's own file dialog (library/iconlist.tcl), so
 // typing behaves the same here as in the directory picker this app also uses.
 const typeAheadTimeout = 500 * time.Millisecond
@@ -79,6 +97,7 @@ func newDirTab(parent *Window) *dirTab {
 	d.tree.Heading("#0", Txt("Directory"), Anchor("w"))
 	d.tree.Heading("perm", Txt("Perm"), Anchor("w"))
 	d.tree.TagConfigure("unreadable", Foreground("#888888"))
+	d.tree.TagConfigure(hintTag, Foreground("#888888"))
 
 	d.refresh = left.TButton(Txt("Refresh"))
 	Grid(d.tree, Row(0), Column(0), Sticky("news"))
@@ -142,6 +161,7 @@ func attachDirHandlers(widgets *uiWidgets) {
 	}))
 
 	swallowExtraClicks(d.tree)
+	skipHintRows(d.tree)
 
 	Bind(d.tree, "<Key>", Command(func(e *Event) { d.typeAhead(e.Char) }))
 
@@ -154,8 +174,15 @@ func attachDirHandlers(widgets *uiWidgets) {
 		sel := d.tree.Selection("")
 		if len(sel) == 0 {
 			d.sel = ""
-		} else {
-			d.sel = d.paths[sel[0]]
+			d.updateSelection()
+			return
+		}
+		// A label row carries no path. skipHintRows keeps the plain click and the
+		// arrow keys off them, but a modified click (Shift-Button-1,
+		// <<ToggleSelection>>) reaches the class binding without passing through
+		// it, so keep the previous selection instead of blanking the right pane.
+		if path, ok := d.paths[sel[0]]; ok {
+			d.sel = path
 		}
 		d.updateSelection()
 	}))
@@ -199,6 +226,44 @@ func attachDirHandlers(widgets *uiWidgets) {
 func swallowExtraClicks(w Widget) {
 	tclEval(fmt.Sprintf("bind %s <Triple-Button-1> {break}", w))
 	tclEval(fmt.Sprintf("bind %s <Quadruple-Button-1> {break}", w))
+}
+
+// skipHintRows keeps the selection off the label rows fill inserts.
+// ttk::treeview has no per-item "not selectable" option, so the bindings that
+// could put the selection on one are intercepted on the widget's own bindtag,
+// which Tk runs before the class one. Only three can: <Button-1>, <Up> and
+// <Down>. <Prior>/<Next> merely scroll without moving the focus, there are no
+// Home/End bindings, and <Return>/<space> reach Toggle, which returns early for
+// an item with no children (treeview.tcl).
+func skipHintRows(w Widget) {
+	// The test goes through a proc rather than being inlined three times, because
+	// it has to guard the empty item: `tag has` raises a Tcl error when the item
+	// does not exist (ttkTreeview.c, FindItem), and both callers can produce an
+	// empty one — identify on the blank area past the last row, focus while the
+	// tree is empty because no root is set yet.
+	tclEval(fmt.Sprintf(`proc %s {w item} {
+		expr {$item ne "" && [$w tag has %s $item]}
+	}`, hintTestProc, hintTag))
+
+	// Clicking a label does nothing at all. Tk falls back to this binding for the
+	// second click of a double-click too, since the widget bindtag has no
+	// <Double-Button-1>, so double-clicking a label is inert as well.
+	tclEval(fmt.Sprintf(`bind %s <Button-1> {
+		if {[%s %%W [%%W identify item %%x %%y]]} { break }
+	}`, w, hintTestProc))
+
+	// Keyboard navigation runs Tk's own Keynav and repeats it when that landed on
+	// a label. A label is always its parent's only child, so a second step always
+	// clears it — down carries on past the parent, up returns to the parent
+	// itself — which is why this needs no arrival-direction bookkeeping.
+	for _, nav := range [2][2]string{{"Up", "up"}, {"Down", "down"}} {
+		event, dir := nav[0], nav[1]
+		tclEval(fmt.Sprintf(`bind %s <%s> {
+			ttk::treeview::Keynav %%W %s
+			if {[%s %%W [%%W focus]]} { ttk::treeview::Keynav %%W %s }
+			break
+		}`, w, event, dir, hintTestProc, dir))
+	}
 }
 
 // rebuild reconstructs the tree from root. With keepState the expansion,
@@ -259,6 +324,7 @@ func (d *dirTab) fill(id string) {
 		// /root or /etc would otherwise mean a dialog per node. Grey the row
 		// instead, so "empty" stays distinguishable from "can't look".
 		d.tree.TagAdd("unreadable", id)
+		d.insertHint(id, hintUnreadable)
 		return
 	}
 
@@ -271,9 +337,20 @@ func (d *dirTab) fill(id string) {
 		}
 	}
 	sort.Strings(names)
+	if len(names) == 0 {
+		d.insertHint(id, hintEmpty)
+		return
+	}
 	for _, name := range names {
 		d.insert(id, filepath.Join(dir, name), name)
 	}
+}
+
+// insertHint puts a label row under id. It is deliberately left out of d.paths
+// and d.ids, which is what marks it as something other than a directory
+// everywhere else in this file.
+func (d *dirTab) insertHint(parentID, text string) {
+	d.tree.Insert(parentID, "end", Txt(text), Tags(hintTag))
 }
 
 // forget deletes an item and drops it and its descendants from the maps.
@@ -327,10 +404,15 @@ func (d *dirTab) topVisiblePath() string {
 		return ""
 	}
 	// Scan down from the top edge; the first rows are the heading, where
-	// IdentifyItem yields nothing.
+	// IdentifyItem yields nothing. A label row is skipped rather than accepted,
+	// since it has no path to anchor on — take the first real directory below it.
 	for y := 0; y < 200; y++ {
-		if id := d.tree.IdentifyItem(4, y); id != "" {
-			return d.paths[id]
+		id := d.tree.IdentifyItem(4, y)
+		if id == "" {
+			continue
+		}
+		if path, ok := d.paths[id]; ok {
+			return path
 		}
 	}
 	return ""
@@ -452,6 +534,10 @@ func (d *dirTab) visibleRows() []string {
 	var walk func(parent string)
 	walk = func(parent string) {
 		for _, id := range d.tree.Children(parent) {
+			// Label rows carry no path, so there is no name to match them on.
+			if _, ok := d.paths[id]; !ok {
+				continue
+			}
 			rows = append(rows, id)
 			if d.opened[d.paths[id]] {
 				walk(id)
