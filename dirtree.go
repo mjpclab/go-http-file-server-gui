@@ -225,7 +225,7 @@ func attachDirHandlers(widgets *uiWidgets) {
 	// it costs one os.ReadDir on the way to some other tab, and not comparing
 	// widget path strings keeps this independent of tk9.0's naming.
 	Bind(widgets.nb, "<<NotebookTabChanged>>", Command(func() {
-		if root := widgets.root.Textvariable(); root != d.shownRoot {
+		if root := nativePath(widgets.root.Textvariable()); root != d.shownRoot {
 			d.rebuild(root, false)
 		}
 	}))
@@ -324,6 +324,10 @@ func overrideTreeBindings(w Widget) {
 // selection and scroll position are carried over; without it (root changed)
 // they are dropped and stale grants are pruned.
 func (d *dirTab) rebuild(root string, keepState bool) {
+	// Normalized once here so shownRoot, the row paths and the dirPerms keys are
+	// all the same spelling — a hand-typed "D:/x" would otherwise never match
+	// the cleaned form and rebuild on every tab change.
+	root = nativePath(root)
 	top := d.topVisiblePath()
 
 	for _, id := range d.tree.Children("") {
@@ -346,7 +350,7 @@ func (d *dirTab) rebuild(root string, keepState bool) {
 		return
 	}
 
-	rootID := d.insert("", filepath.Clean(root), filepath.Clean(root))
+	rootID := d.insert("", root, root)
 	d.expand(rootID)
 	d.restoreExpansion(rootID)
 	d.restoreSelection()

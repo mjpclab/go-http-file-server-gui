@@ -63,7 +63,7 @@ func attachBrowseHandlers(widgets *uiWidgets) {
 	widgets.rootPick.Configure(Command(func() {
 		dir := ChooseDirectory(Initialdir(widgets.root.Textvariable()), Parent(widgets.win))
 		if dir != "" {
-			widgets.root.Configure(Textvariable(dir))
+			widgets.root.Configure(Textvariable(nativePath(dir)))
 		}
 	}))
 	attachFilePickHandler(widgets.win, widgets.tlsCertPick, widgets.tlsCert)
@@ -74,7 +74,7 @@ func attachFilePickHandler(parent *Window, button *TButtonWidget, entry *TEntryW
 	button.Configure(Command(func() {
 		files := GetOpenFile(Initialdir(filepath.Dir(entry.Textvariable())), Parent(parent))
 		if len(files) > 0 && len(files[0]) > 0 {
-			entry.Configure(Textvariable(files[0]))
+			entry.Configure(Textvariable(nativePath(files[0])))
 		}
 	}))
 }

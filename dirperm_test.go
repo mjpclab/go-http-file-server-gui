@@ -120,3 +120,26 @@ func TestPruneDropsOutsideRootAndMissing(t *testing.T) {
 		t.Errorf("prune with empty root left %v", p.m)
 	}
 }
+
+// nativePath is what keeps the Root entry spelled the same way as the Directory
+// tree, which builds its rows from filepath — including the empty case, where
+// filepath.Clean would turn a blank entry into ".".
+func TestNativePath(t *testing.T) {
+	cases := [][2]string{
+		{"", ""},
+		{"/a/b", "/a/b"},
+		{"/a/b/", "/a/b"},
+		{"/a//b", "/a/b"},
+		{"/a/./b", "/a/b"},
+	}
+	for _, c := range cases {
+		in, want := c[0], filepath.FromSlash(c[1])
+		if got := nativePath(in); got != want {
+			t.Errorf("nativePath(%q) = %q, want %q", in, got, want)
+		}
+		// Whatever separator arrives, the result must be the native spelling.
+		if got := nativePath(filepath.FromSlash(in)); got != want {
+			t.Errorf("nativePath(%q) = %q, want %q", filepath.FromSlash(in), got, want)
+		}
+	}
+}

@@ -45,21 +45,24 @@ func loadPreference(widgets *uiWidgets) {
 		}
 	}
 
-	widgets.root.Configure(Textvariable(pref.Root))
+	// Paths are normalized on the way in as well, so a file saved before this
+	// (or hand-edited) does not put a foreign separator back on screen.
+	root := nativePath(pref.Root)
+	widgets.root.Configure(Textvariable(root))
 	widgets.listen.Configure(Textvariable(pref.Listen))
 	setChecked(widgets.archive, pref.Archive)
 	setChecked(widgets.upload, pref.Upload)
 	setChecked(widgets.mkdir, pref.Mkdir)
 	setChecked(widgets.del, pref.Del)
-	widgets.tlsCert.Configure(Textvariable(pref.Cert))
-	widgets.tlsKey.Configure(Textvariable(pref.Key))
+	widgets.tlsCert.Configure(Textvariable(nativePath(pref.Cert)))
+	widgets.tlsKey.Configure(Textvariable(nativePath(pref.Key)))
 
 	// Grants name absolute paths, so drop any that the saved root no longer
 	// covers or that have since disappeared. The tree itself is left unbuilt:
 	// shownRoot stays empty, so it is populated the first time the Directory
 	// tab is opened, and never for users who don't go there.
 	widgets.dir.perms = dirPermsFromJSON(pref.DirPerms)
-	widgets.dir.perms.prune(pref.Root)
+	widgets.dir.perms.prune(root)
 
 	// The saved size is clamped rather than trusted: a hand-edited or truncated
 	// file should not be able to open a window too small to operate.
@@ -75,7 +78,7 @@ func loadPreference(widgets *uiWidgets) {
 }
 
 func savePreference(widgets *uiWidgets) {
-	root := widgets.root.Textvariable()
+	root := nativePath(widgets.root.Textvariable())
 	widgets.dir.perms.prune(root)
 
 	pref := preference{

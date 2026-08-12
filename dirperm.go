@@ -75,6 +75,18 @@ func hasPathPrefix(p, prefix string) bool {
 	return p[len(prefix)] == filepath.Separator
 }
 
+// nativePath rewrites a path with the platform's separator. Tk's file dialogs
+// hand back Tcl-style paths — "D:/Downloads" on Windows — while everything on
+// the Go side (dirPerms keys, the Directory tree, hasPathPrefix's separator
+// test) goes through filepath.Clean, so entry text is normalized on the way in
+// to keep the two spellings from diverging on screen and in comparisons.
+func nativePath(p string) string {
+	if p == "" {
+		return "" // filepath.Clean("") is ".", which is not an empty entry.
+	}
+	return filepath.Clean(p)
+}
+
 // dirPerms maps a cleaned absolute directory path to the permissions explicitly
 // granted on it. ghfs grants by path prefix, so an entry also covers every
 // descendant of that directory; there is no way to revoke an inherited grant.
