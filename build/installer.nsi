@@ -37,6 +37,17 @@ SetCompressor /SOLID lzma
 !define MULTIUSER_INSTALLMODE_INSTDIR_REGISTRY_KEY "Software\${APP_KEY}"
 !define MULTIUSER_INSTALLMODE_INSTDIR_REGISTRY_VALUENAME "InstallDir"
 
+; The same key doubles as the "which scope was used last" marker: the INSTDIR_
+; pair only restores the directory *within* a scope, while the DEFAULT_ pair is
+; what makes MultiUser.nsh preselect the scope itself. With
+; MULTIUSER_INSTALLMODE_DEFAULT_CURRENTUSER set it probes HKCU first and falls
+; back to HKLM, so a previous all-users install reopens as all-users and
+; everything else stays per-user. It also fixes the uninstaller, which would
+; otherwise always assume per-user and leave an all-users install's HKLM
+; uninstall entry and common Start Menu shortcut behind.
+!define MULTIUSER_INSTALLMODE_DEFAULT_REGISTRY_KEY "Software\${APP_KEY}"
+!define MULTIUSER_INSTALLMODE_DEFAULT_REGISTRY_VALUENAME "InstallDir"
+
 !include MultiUser.nsh
 !include MUI2.nsh
 !include LogicLib.nsh
