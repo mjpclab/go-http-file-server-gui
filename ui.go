@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"fmt"
 	"strconv"
+	"strings"
 
 	. "modernc.org/tk9.0"
 	"modernc.org/tk9.0/extensions/themedetector"
@@ -33,7 +34,182 @@ func applySystemTheme() {
 	linkFont := NewFont(Family("TkDefaultFont"), Underline(true))
 	StyleConfigure("Link.TLabel", Foreground(linkColor), Font(linkFont))
 
+	useLargerThemeTiles()
 	useBuiltinTreeIndicator()
+}
+
+// Tcl names the tiling replacement installs itself under. Each element keeps
+// the last dotted component of the one it stands in for, because widgets look
+// their own parts up by that tail: Ttk_FindElement compares only the text after
+// the final dot, so a notebook asking Ttk_ClientRegion for "client" would miss
+// a plain "ghfsNotebookclient" and lay its tab out over the whole widget,
+// losing the border inset. Registering the full dotted name is what keeps
+// Ttk_GetElement from falling through to the element the tail names — the
+// failure mode treeIndicator documents.
+const (
+	tileImageProc   = "ghfsTileImage"
+	entryElement    = "ghfsEntry.field"
+	buttonElement   = "ghfsButton.button"
+	notebookElement = "ghfsNotebook.client"
+	treeElement     = "ghfsTreeview.field"
+	headingElement  = "ghfsTreeheading.cell"
+)
+
+// tileSize is the length a source image is grown to along an axis it is tiled
+// on. Past a couple of hundred pixels the blits saved stop being measurable,
+// and every image is copied at startup.
+const tileSize = 200
+
+// tiledElements are the azure image elements that get tiled over a large area,
+// restated here so they can be given larger copies of the same images. Each
+// entry mirrors an element in the theme's light.tcl — dark.tcl defines the same
+// five identically — together with the layout that draws it.
+//
+// The states matter as much as the images: an element definition replaces
+// azure's wholesale, so a state left out here would stop rendering.
+var tiledElements = []struct {
+	name, style, original string
+	options               string // element options, as azure spells them
+	border                int    // -border, which is also the 9-patch inset
+	srcW, srcH            int    // size on disk, and the size pinned as natural
+	growW, growH          int
+	images                []struct{ state, image string }
+}{{
+	// Entries stretch the full width of the window, which makes this the widest
+	// tiling in the app.
+	name: entryElement, style: "TEntry", original: "Entry.field",
+	options: "-border 5 -padding 8 -sticky news",
+	border:  5, srcW: 20, srcH: 20, growW: tileSize, growH: 20,
+	images: []struct{ state, image string }{
+		{"", "box-basic"},
+		{"focus hover", "box-accent"},
+		{"invalid", "box-invalid"},
+		{"disabled", "box-basic"},
+		{"focus", "box-accent"},
+		{"hover", "box-hover"},
+	},
+}, {
+	// Start and Stop span half the window each.
+	name: buttonElement, style: "TButton", original: "Button.button",
+	options: "-border 4 -sticky ewns",
+	border:  4, srcW: 20, srcH: 20, growW: tileSize, growH: 20,
+	images: []struct{ state, image string }{
+		{"", "rect-basic"},
+		{"selected disabled", "rect-basic"},
+		{"disabled", "rect-basic"},
+		{"selected", "rect-basic"},
+		{"pressed", "rect-basic"},
+		{"active", "button-hover"},
+		{"focus", "button-hover"},
+	},
+}, {
+	// The body behind whichever tab is open, tiled in both directions.
+	name: notebookElement, style: "TNotebook", original: "Notebook.client",
+	options: "-border 5",
+	border:  5, srcW: 50, srcH: 50, growW: tileSize, growH: tileSize,
+	images: []struct{ state, image string }{{"", "notebook"}},
+}, {
+	// The Directory tab's tree, likewise.
+	name: treeElement, style: "Treeview", original: "Treeview.field",
+	options: "-border 5",
+	border:  5, srcW: 50, srcH: 50, growW: tileSize, growH: tileSize,
+	images: []struct{ state, image string }{{"", "card"}},
+}, {
+	name: headingElement, style: "Heading", original: "Treeheading.cell",
+	options: "-border 5 -padding 4 -sticky ewns",
+	border:  5, srcW: 20, srcH: 20, growW: tileSize, growH: 20,
+	images: []struct{ state, image string }{
+		{"", "tree-basic"},
+		{"pressed", "tree-pressed"},
+	},
+}}
+
+// useLargerThemeTiles redraws azure's stretched backgrounds from larger source
+// images, which is most of what makes resizing the window smooth.
+//
+// An image element that has a -border is not scaled to its widget, it is tiled:
+// ttkImage.c walks the nine regions of the image and issues one Tk_RedrawImage
+// per source-sized tile (Ttk_Fill). Azure draws entries, buttons, the notebook
+// body and the tree from 20x20 and 50x50 images, so one entry across a 1200px
+// window costs some three hundred blits — and a window resize redraws every
+// visible widget on every step. Measured under X11 at 1200x900: 13ms per resize
+// step on the General tab and 25ms on the Directory tab, against 3.8ms and
+// 9.9ms once the tiles are 200px. At the default window size, 7.0ms and 10.6ms
+// against 2.7ms and 4.4ms.
+//
+// What is drawn does not change. ttk tiles these images from the same nine
+// regions the copies are built from, and every image involved has a uniform
+// middle band along the axis it is tiled on, so the pixels land where they did
+// before — only the number of blits differs. Two things would change it, and
+// both are avoided:
+//
+//   - An element's natural size is its image's, and Tk adds that to what a
+//     treeview or an entry asks for, so a larger image would move the paned
+//     window's sash and widen the "..." buttons. -width/-height pin the
+//     reported size back to the original.
+//   - azure shares images between elements — box-basic backs both Entry.field
+//     and Checkbutton.indicator, which draws it whole rather than tiled, and
+//     would show a slice of the grown copy. Hence private copies and private
+//     elements rather than growing the theme's images in place.
+//
+// Nothing here is load-bearing. tclEval swallows errors, the Tcl side checks
+// each image is still the size the table claims before copying it, and a theme
+// that has moved on simply keeps drawing itself the slow way.
+func useLargerThemeTiles() {
+	// azure keeps its photos in the theme namespace's I array, one namespace
+	// per variant.
+	theme := tclEval("ttk::style theme use")
+	if !strings.HasPrefix(theme, "azure-") {
+		return
+	}
+
+	// The corners are copied at their original size; the edges and the centre
+	// are copied into a larger destination rectangle, which a photo copy fills
+	// by replicating the source — the same tiling ttk would do at draw time,
+	// done once here instead.
+	tclEval(fmt.Sprintf(`proc %s {theme name b sw sh w h} {
+		set src [set ::ttk::theme::${theme}::I($name)]
+		if {[image width $src] != $sw || [image height $src] != $sh} { return "" }
+		set dst [image create photo -width $w -height $h]
+		set sx [expr {$sw - $b}]
+		set sy [expr {$sh - $b}]
+		set dx [expr {$w - $b}]
+		set dy [expr {$h - $b}]
+		$dst copy $src -from 0 0 $b $b -to 0 0 -compositingrule set
+		$dst copy $src -from $sx 0 $sw $b -to $dx 0 -compositingrule set
+		$dst copy $src -from 0 $sy $b $sh -to 0 $dy -compositingrule set
+		$dst copy $src -from $sx $sy $sw $sh -to $dx $dy -compositingrule set
+		$dst copy $src -from $b 0 $sx $b -to $b 0 $dx $b -compositingrule set
+		$dst copy $src -from $b $sy $sx $sh -to $b $dy $dx $h -compositingrule set
+		$dst copy $src -from 0 $b $b $sy -to 0 $b $b $dy -compositingrule set
+		$dst copy $src -from $sx $b $sw $sy -to $dx $b $w $dy -compositingrule set
+		$dst copy $src -from $b $b $sx $sy -to $b $b $dx $dy -compositingrule set
+		return $dst
+	}`, tileImageProc))
+
+	for _, e := range tiledElements {
+		// The first image in the spec is the default one, the rest are keyed on
+		// state.
+		spec := make([]string, 0, 2*len(e.images))
+		for _, i := range e.images {
+			img := tclEval(fmt.Sprintf("%s %s %s %d %d %d %d %d",
+				tileImageProc, theme, i.image, e.border, e.srcW, e.srcH, e.growW, e.growH))
+			if img == "" {
+				return
+			}
+			if i.state != "" {
+				spec = append(spec, "{"+i.state+"}")
+			}
+			spec = append(spec, img)
+		}
+
+		tclEval(fmt.Sprintf("ttk::style element create %s image [list %s] %s -width %d -height %d",
+			e.name, strings.Join(spec, " "), e.options, e.srcW, e.srcH))
+		// Swapping the element name in the layout azure already built leaves
+		// the rest of that layout — padding, sticky, children — alone.
+		tclEval(fmt.Sprintf("ttk::style layout %s [string map {%s %s} [ttk::style layout %s]]",
+			e.style, e.original, e.name, e.style))
+	}
 }
 
 // treeIndicator is the name Tk's own Treeitem.indicator is borrowed under. Two
