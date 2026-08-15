@@ -280,9 +280,13 @@ type uiWidgets struct {
 	del      *VariableOpt
 	// globalPerms are the four General tab checkbuttons, in permOrder.
 	globalPerms [4]*TCheckbuttonWidget
+	dirIndex    *TEntryWidget
+	hide        *TEntryWidget
 
 	dir *dirTab
 
+	listenPlain *TEntryWidget
+	listenTLS   *TEntryWidget
 	tlsCert     *TEntryWidget
 	tlsCertPick *TButtonWidget
 	tlsKey      *TEntryWidget
@@ -344,6 +348,8 @@ func newUI() *uiWidgets {
 	root := general.TEntry(Textvariable(""))
 	rootPick := general.TButton(Txt("..."), Width(3))
 	listen := general.TEntry(Textvariable(""))
+	dirIndex := general.TEntry(Textvariable(""))
+	hide := general.TEntry(Textvariable(""))
 
 	archiveVar := Variable("0")
 	uploadVar := Variable("0")
@@ -360,10 +366,11 @@ func newUI() *uiWidgets {
 	Grid(del, Row(0), Column(3), Padx("1m"))
 
 	formRow(general.Window, 0, "Root", root, rootPick)
-	Grid(general.TLabel(Txt("Listen")), Row(1), Column(0), Sticky("w"), Padx("1m"), Pady("1m"))
-	Grid(listen, Row(1), Column(1), Columnspan(2), Sticky("we"), Padx("1m"), Pady("1m"))
+	formEntryRow(general.Window, 1, "Listen", listen)
 	Grid(general.TLabel(Txt("Options")), Row(2), Column(0), Sticky("w"), Padx("1m"), Pady("1m"))
 	Grid(options, Row(2), Column(1), Columnspan(2), Sticky("w"), Padx("1m"), Pady("1m"))
+	formEntryRow(general.Window, 3, "Dir Index", dirIndex)
+	formEntryRow(general.Window, 4, "Hide", hide)
 	GridColumnConfigure(general, 1, Weight(1))
 
 	// Directory tab
@@ -371,12 +378,16 @@ func newUI() *uiWidgets {
 
 	// Advanced tab
 	advanced := nb.TFrame(Padding("2m"))
+	listenPlain := advanced.TEntry(Textvariable(""))
+	listenTLS := advanced.TEntry(Textvariable(""))
 	tlsCert := advanced.TEntry(Textvariable(""))
 	tlsCertPick := advanced.TButton(Txt("..."), Width(3))
 	tlsKey := advanced.TEntry(Textvariable(""))
 	tlsKeyPick := advanced.TButton(Txt("..."), Width(3))
-	formRow(advanced.Window, 0, "TLS Certificate", tlsCert, tlsCertPick)
-	formRow(advanced.Window, 1, "TLS Key", tlsKey, tlsKeyPick)
+	formEntryRow(advanced.Window, 0, "Listen Plain", listenPlain)
+	formEntryRow(advanced.Window, 1, "Listen TLS", listenTLS)
+	formRow(advanced.Window, 2, "TLS Certificate", tlsCert, tlsCertPick)
+	formRow(advanced.Window, 3, "TLS Key", tlsKey, tlsKeyPick)
 	GridColumnConfigure(advanced, 1, Weight(1))
 
 	// Links tab: clickable URLs, populated after the server starts.
@@ -417,9 +428,13 @@ func newUI() *uiWidgets {
 		del:      delVar,
 
 		globalPerms: [4]*TCheckbuttonWidget{archive, upload, mkdir, del},
+		dirIndex:    dirIndex,
+		hide:        hide,
 
 		dir: dir,
 
+		listenPlain: listenPlain,
+		listenTLS:   listenTLS,
 		tlsCert:     tlsCert,
 		tlsCertPick: tlsCertPick,
 		tlsKey:      tlsKey,
@@ -434,7 +449,10 @@ func newUI() *uiWidgets {
 		winH: winHeight,
 
 		lockedInputs: []*Window{
-			root.Window, listen.Window, tlsCert.Window, tlsKey.Window,
+			root.Window, listen.Window,
+			dirIndex.Window, hide.Window,
+			listenPlain.Window, listenTLS.Window,
+			tlsCert.Window, tlsKey.Window,
 		},
 		// Two Directory tab widgets are deliberately absent here.
 		// The tree: ttk::treeview has no -state option, so configuring one
@@ -472,6 +490,13 @@ func formRow(parent *Window, row int, label string, entry *TEntryWidget, pick *T
 	Grid(parent.TLabel(Txt(label)), Row(row), Column(0), Sticky("w"), Padx("1m"), Pady("1m"))
 	Grid(entry, Row(row), Column(1), Sticky("we"), Padx("1m"), Pady("1m"))
 	Grid(pick, Row(row), Column(2), Padx("1m"), Pady("1m"))
+}
+
+// formEntryRow lays out a "label : entry" row with no pick button, spanning the
+// column formRow leaves for one so the entries of both kinds end flush.
+func formEntryRow(parent *Window, row int, label string, entry *TEntryWidget) {
+	Grid(parent.TLabel(Txt(label)), Row(row), Column(0), Sticky("w"), Padx("1m"), Pady("1m"))
+	Grid(entry, Row(row), Column(1), Columnspan(2), Sticky("we"), Padx("1m"), Pady("1m"))
 }
 
 // resizeWindow sizes the window and re-centers it on the screen. The size is

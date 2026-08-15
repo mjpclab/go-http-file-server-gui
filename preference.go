@@ -9,14 +9,21 @@ import (
 )
 
 type preference struct {
-	Root    string `json:"root"`
-	Listen  string `json:"listen"`
-	Archive bool   `json:"archive"`
-	Upload  bool   `json:"upload"`
-	Mkdir   bool   `json:"mkdir"`
-	Del     bool   `json:"del"`
-	Cert    string `json:"cert"`
-	Key     string `json:"key"`
+	Root string `json:"root"`
+	// The multi-value fields are stored as the raw text of their entry, not as
+	// the parsed list: the form is the source of truth, so what the user typed
+	// comes back verbatim rather than re-spelled with one separator.
+	Listen      string `json:"listen"`
+	Archive     bool   `json:"archive"`
+	Upload      bool   `json:"upload"`
+	Mkdir       bool   `json:"mkdir"`
+	Del         bool   `json:"del"`
+	DirIndex    string `json:"dirIndex"`
+	Hide        string `json:"hide"`
+	ListenPlain string `json:"listenPlain"`
+	ListenTLS   string `json:"listenTls"`
+	Cert        string `json:"cert"`
+	Key         string `json:"key"`
 	// DirPerms maps an absolute directory path to the permissions granted on
 	// it, e.g. {"/srv/share/pub": ["archive", "upload"]}.
 	DirPerms map[string][]string `json:"dirPerms"`
@@ -54,6 +61,10 @@ func loadPreference(widgets *uiWidgets) {
 	setChecked(widgets.upload, pref.Upload)
 	setChecked(widgets.mkdir, pref.Mkdir)
 	setChecked(widgets.del, pref.Del)
+	widgets.dirIndex.Configure(Textvariable(pref.DirIndex))
+	widgets.hide.Configure(Textvariable(pref.Hide))
+	widgets.listenPlain.Configure(Textvariable(pref.ListenPlain))
+	widgets.listenTLS.Configure(Textvariable(pref.ListenTLS))
 	widgets.tlsCert.Configure(Textvariable(nativePath(pref.Cert)))
 	widgets.tlsKey.Configure(Textvariable(nativePath(pref.Key)))
 
@@ -82,18 +93,22 @@ func savePreference(widgets *uiWidgets) {
 	widgets.dir.perms.prune(root)
 
 	pref := preference{
-		Root:      root,
-		Listen:    widgets.listen.Textvariable(),
-		Archive:   widgets.archive.Get() == "1",
-		Upload:    widgets.upload.Get() == "1",
-		Mkdir:     widgets.mkdir.Get() == "1",
-		Del:       widgets.del.Get() == "1",
-		Cert:      widgets.tlsCert.Textvariable(),
-		Key:       widgets.tlsKey.Textvariable(),
-		DirPerms:  widgets.dir.perms.toJSON(),
-		Width:     widgets.winW,
-		Height:    widgets.winH,
-		Maximized: widgets.winMax,
+		Root:        root,
+		Listen:      widgets.listen.Textvariable(),
+		Archive:     widgets.archive.Get() == "1",
+		Upload:      widgets.upload.Get() == "1",
+		Mkdir:       widgets.mkdir.Get() == "1",
+		Del:         widgets.del.Get() == "1",
+		DirIndex:    widgets.dirIndex.Textvariable(),
+		Hide:        widgets.hide.Textvariable(),
+		ListenPlain: widgets.listenPlain.Textvariable(),
+		ListenTLS:   widgets.listenTLS.Textvariable(),
+		Cert:        widgets.tlsCert.Textvariable(),
+		Key:         widgets.tlsKey.Textvariable(),
+		DirPerms:    widgets.dir.perms.toJSON(),
+		Width:       widgets.winW,
+		Height:      widgets.winH,
+		Maximized:   widgets.winMax,
 	}
 
 	path, err := preferencePath()
