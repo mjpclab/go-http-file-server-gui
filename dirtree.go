@@ -717,9 +717,9 @@ func (d *dirTab) refreshAbbrs() {
 	}
 }
 
-// updateSelection redraws the right pane. A permission already granted globally
-// or by an ancestor is shown checked and disabled: ghfs grants are additive, so
-// letting the user clear such a box would promise a revocation that cannot happen.
+// updateSelection redraws the right pane. A box shows what the directory grants
+// on its own; a permission already arriving globally or from an ancestor only
+// adds a hint, and stays clickable — ghfs merges the grants itself.
 func (d *dirTab) updateSelection() {
 	want := paneState{valid: true}
 
@@ -735,7 +735,7 @@ func (d *dirTab) updateSelection() {
 		for i := range want.state {
 			want.state[i] = "disabled"
 			if globals[i] {
-				want.checked[i], want.hint[i] = true, "(granted globally)"
+				want.hint[i] = "(granted globally)"
 			}
 		}
 		d.applyPane(want)
@@ -748,17 +748,16 @@ func (d *dirTab) updateSelection() {
 
 	for i, bit := range permOrder {
 		state, hint := "normal", ""
-		checked := own&bit != 0
 		switch {
 		case globals[i]:
-			state, hint, checked = "disabled", "(granted globally)", true
+			hint = "(granted globally)"
 		case inherited&bit != 0:
-			state, hint, checked = "disabled", "(inherited from parent)", true
+			hint = "(inherited from parent)"
 		}
 		if d.locked {
 			state = "disabled"
 		}
-		want.state[i], want.hint[i], want.checked[i] = state, hint, checked
+		want.state[i], want.hint[i], want.checked[i] = state, hint, own&bit != 0
 	}
 	d.applyPane(want)
 }
