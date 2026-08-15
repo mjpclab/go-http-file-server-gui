@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"path/filepath"
 	"strconv"
 
@@ -101,7 +100,7 @@ func attachStartStopHandlers(widgets *uiWidgets) {
 				if len(openErrs) > 0 {
 					showErrors(openErrs)
 				}
-				showLinksPlaceholder(widgets.links)
+				widgets.links.showPlaceholder()
 				widgets.stop.Configure(State("disabled"))
 				setInputsEnabled(widgets, true)
 				widgets.start.Configure(State("normal"))
@@ -161,25 +160,17 @@ func createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 }
 
 func createLinks(appInst *app.App, widgets *uiWidgets) {
-	clearLinkChildren(widgets.links)
 	accessOrigins := appInst.GetAccessibleUrls(false)
 	if len(accessOrigins) == 0 {
-		showLinksPlaceholder(widgets.links)
+		widgets.links.showPlaceholder()
 		return
 	}
 
+	widgets.links.show(accessOrigins[0])
+
 	// The URLs are what the user came for once the server is up, and the Links
 	// tab may not be the one on screen — bring it forward.
-	widgets.nb.Select(widgets.links)
-
-	for _, origin := range accessOrigins[0] {
-		if _, err := url.Parse(origin); err != nil {
-			continue
-		}
-		lbl := widgets.links.TLabel(Txt(origin), Cursor("hand2"), Style("Link.TLabel"))
-		bindLink(lbl, origin)
-		Pack(lbl, Anchor("w"), Pady("1"))
-	}
+	widgets.nb.Select(widgets.links.frame)
 }
 
 func setInputsEnabled(widgets *uiWidgets, enabled bool) {

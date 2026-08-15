@@ -292,7 +292,7 @@ type uiWidgets struct {
 	tlsKey      *TEntryWidget
 	tlsKeyPick  *TButtonWidget
 
-	links *TFrameWidget
+	links *linksTab
 
 	start *TButtonWidget
 	stop  *TButtonWidget
@@ -391,8 +391,7 @@ func newUI() *uiWidgets {
 	GridColumnConfigure(advanced, 1, Weight(1))
 
 	// Links tab: clickable URLs, populated after the server starts.
-	links := nb.TFrame(Padding("2m"))
-	showLinksPlaceholder(links)
+	links := newLinksTab(nb.Window)
 
 	// About tab: static version information, no state and no handlers.
 	about := newAboutTab(nb.Window)
@@ -400,7 +399,7 @@ func newUI() *uiWidgets {
 	nb.Add(general, Txt("General"))
 	nb.Add(dir.frame, Txt("Directory"))
 	nb.Add(advanced, Txt("Advanced"))
-	nb.Add(links, Txt("Links"))
+	nb.Add(links.frame, Txt("Links"))
 	nb.Add(about, Txt("About"))
 
 	// buttons
@@ -469,20 +468,6 @@ func newUI() *uiWidgets {
 			tlsCertPick.Window, tlsKeyPick.Window,
 		},
 	}
-}
-
-func clearLinkChildren(links *TFrameWidget) {
-	for _, child := range WinfoChildren(links.Window) {
-		Destroy(child)
-	}
-}
-
-// showLinksPlaceholder puts a note where the URLs go. The Links tab is always
-// visible, so leaving it blank while the server is stopped would read as a bug
-// rather than as "nothing to show yet".
-func showLinksPlaceholder(links *TFrameWidget) {
-	clearLinkChildren(links)
-	Pack(links.TLabel(Txt("Server is not running.")), Anchor("w"), Pady("1"))
 }
 
 // formRow lays out a "label : entry [...]" row in a form-style grid.
