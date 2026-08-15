@@ -3,6 +3,7 @@ set -e
 
 cd "$(dirname "$0")/../"
 mkdir -p output
+rm -f output/*
 
 # Version shown on the About tab. Unlike gen_syso.sh the leading `v` is kept —
 # nothing parses this string. The sed drops git's commit count and the `g` it
