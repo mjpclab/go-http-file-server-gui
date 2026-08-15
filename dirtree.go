@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -35,6 +36,12 @@ type dirTab struct {
 	ids    map[string]string // absolute path -> item id
 	loaded map[string]bool   // item ids whose children have been read
 	opened map[string]bool   // absolute path -> expanded, preserved across refresh
+
+	// hide is the compiled Hide pattern, nil when nothing is filtered;
+	// shownHide is the entry text it was built from, so a tab change can tell a
+	// changed pattern from an unchanged one without recompiling.
+	hide      *regexp.Regexp
+	shownHide string
 
 	shownRoot string // root the tree was last built from
 	sel       string // selected directory
@@ -82,6 +89,22 @@ const (
 	browseTopProc = "ghfsBrowseTop"
 )
 
+// hiddenTag marks a directory the Hide patterns keep out of its parent's
+// listing. It is deliberately a font change and not a colour: #888888 already
+// means "unreadable" and "label row" in this tree, and being left out of a
+// listing is neither — the row stays selectable and its permission
+// checkbuttons stay live, because ghfs still serves the directory, still lists
+// its own contents, and still honours every grant made on it. Only the parent's
+// listing omits it.
+//
+// The font is derived from the real TkDefaultFont rather than built from a
+// family name, so it keeps whatever family and size the platform picked and
+// changes nothing but the slant.
+const (
+	hiddenTag  = "hidden"
+	hiddenFont = "ghfsHiddenFont"
+)
+
 // typeAheadTimeout matches Tk's own file dialog (library/iconlist.tcl), so
 // typing behaves the same here as in the directory picker this app also uses.
 const typeAheadTimeout = 500 * time.Millisecond
@@ -115,6 +138,8 @@ func newDirTab(parent *Window) *dirTab {
 	d.tree.Heading("perm", Txt("Perm"), Anchor("w"))
 	d.tree.TagConfigure("unreadable", Foreground("#888888"))
 	d.tree.TagConfigure(hintTag, Foreground("#888888"))
+	tclEval(fmt.Sprintf("font create %s {*}[font actual TkDefaultFont] -slant italic", hiddenFont))
+	d.tree.TagConfigure(hiddenTag, Font(hiddenFont))
 
 	d.refresh = left.TButton(Txt("Refresh"))
 	Grid(d.tree, Row(0), Column(0), Sticky("news"))
@@ -224,9 +249,15 @@ func attachDirHandlers(widgets *uiWidgets) {
 	// checked: the rebuild only happens when Root actually changed, so at worst
 	// it costs one os.ReadDir on the way to some other tab, and not comparing
 	// widget path strings keeps this independent of tk9.0's naming.
+	// The Hide pattern is picked up here too, and before the rebuild: insert
+	// marks rows as it creates them, so a changed pattern has to be compiled
+	// first, and a rebuild then leaves nothing for refreshHidden to do.
 	Bind(widgets.nb, "<<NotebookTabChanged>>", Command(func() {
+		hideChanged := d.setHide(widgets.hide.Textvariable())
 		if root := nativePath(widgets.root.Textvariable()); root != d.shownRoot {
 			d.rebuild(root, false)
+		} else if hideChanged {
+			d.refreshHidden()
 		}
 	}))
 }
@@ -364,8 +395,54 @@ func (d *dirTab) insert(parentID, dir, label string) string {
 	id := d.tree.Insert(parentID, "end", Txt(label), Values([]string{d.perms.abbr(dir)}))
 	d.paths[id] = dir
 	d.ids[dir] = id
+	if d.isHidden(dir) {
+		d.tree.TagAdd(hiddenTag, id)
+	}
 	d.tree.Insert(id, "end", Txt(""))
 	return id
+}
+
+// isHidden reports whether Hide keeps this row out of its parent's listing.
+//
+// Two limits are deliberate. ghfs matches the base name only, so a pattern
+// marks every directory of that name at any depth, exactly as the server
+// filters them. And only the matching directory is marked, not its descendants:
+// they are unreachable by *browsing* down from a hidden parent, but each is
+// still served, and claiming otherwise would overstate what the pattern did.
+//
+// The tree's own root is never marked. It is the served root, so it appears in
+// no listing to be filtered out of in the first place; comparing against
+// shownRoot identifies it without asking Tk for each row's parent, which
+// refreshHidden would pay for once per loaded row.
+func (d *dirTab) isHidden(dir string) bool {
+	return d.hide != nil && dir != d.shownRoot && d.hide.MatchString(filepath.Base(dir))
+}
+
+// setHide recompiles the filter from the Hide entry, reporting whether it
+// changed. The text is compared rather than the pattern so that recompiling —
+// and the redraw it implies — happens only on an actual edit.
+func (d *dirTab) setHide(text string) bool {
+	if text == d.shownHide {
+		return false
+	}
+	d.shownHide = text
+	d.hide = newHideFilter(parseMultiValues(text))
+	return true
+}
+
+// refreshHidden re-marks every loaded row after the pattern changed. Rows are
+// cleared in one call — `tag remove` with no items clears the whole tree — and
+// no directory is read again, so this stays off the disk.
+func (d *dirTab) refreshHidden() {
+	tclEval(fmt.Sprintf("%s tag remove %s", d.tree, hiddenTag))
+	if d.hide == nil {
+		return
+	}
+	for id, dir := range d.paths {
+		if d.isHidden(dir) {
+			d.tree.TagAdd(hiddenTag, id)
+		}
+	}
 }
 
 // fill replaces a node's placeholder with its subdirectories.
