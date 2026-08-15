@@ -56,14 +56,13 @@ func TestInheritanceAndAbbr(t *testing.T) {
 		t.Errorf("abbr(/a/x) = %q, want empty", got)
 	}
 
-	// Nearest ancestor wins as the reported source.
-	p.set(filepath.FromSlash("/a"), permUpload, true)
-	bits, from := p.inherited(abc)
-	if bits&permUpload == 0 {
-		t.Fatal("expected /a/b/c to inherit upload")
+	// Every ancestor contributes, at any depth.
+	p.set(filepath.FromSlash("/a"), permMkdir, true)
+	if bits := p.inherited(abc); bits&(permUpload|permMkdir) != permUpload|permMkdir {
+		t.Errorf("inherited(/a/b/c) = %v, want upload from /a/b and mkdir from /a", bits)
 	}
-	if from[permUpload] != ab {
-		t.Errorf("inherited from %q, want nearest ancestor %q", from[permUpload], ab)
+	if bits := p.inherited(ax); bits&permUpload != 0 {
+		t.Error("/a/x inherited upload from /a/b")
 	}
 
 	// An explicit bit survives being shadowed by an ancestor.

@@ -116,24 +116,14 @@ func (p *dirPerms) set(dir string, bit perm, on bool) {
 	p.m[dir] = v
 }
 
-// inherited returns the bits dir receives from an ancestor entry, along with
-// the nearest granting ancestor for each bit so the UI can name the source.
-func (p *dirPerms) inherited(dir string) (bits perm, from map[perm]string) {
+// inherited returns the bits dir receives from an ancestor entry.
+func (p *dirPerms) inherited(dir string) (bits perm) {
 	dir = filepath.Clean(dir)
-	from = map[perm]string{}
 	for anc, v := range p.m {
 		if pathEqual(anc, dir) || !hasPathPrefix(dir, anc) {
 			continue
 		}
-		for _, bit := range permOrder {
-			if v&bit == 0 {
-				continue
-			}
-			bits |= bit
-			if cur, ok := from[bit]; !ok || len(anc) > len(cur) {
-				from[bit] = anc
-			}
-		}
+		bits |= v
 	}
 	return
 }
@@ -157,7 +147,7 @@ func (p *dirPerms) dirsWith(bit perm) []string {
 // on, every row would carry the same letter and the column would stop informing.
 func (p *dirPerms) abbr(dir string) string {
 	own := p.get(dir)
-	inherited, _ := p.inherited(dir)
+	inherited := p.inherited(dir)
 
 	var b strings.Builder
 	for _, bit := range permOrder {

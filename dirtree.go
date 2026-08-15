@@ -14,13 +14,14 @@ import (
 	. "modernc.org/tk9.0"
 )
 
-// dirTab is the Directory tab: a lazily populated tree of the directories under
-// Root on the left, and the four permission toggles for the selected directory
-// on the right.
+// dirTab is the Directory tab: Root above a lazily populated tree of the
+// directories under it on the left, and the four permission toggles for the
+// selected directory on the right.
 type dirTab struct {
 	frame   *TFrameWidget
 	tree    *TTreeviewWidget
 	refresh *TButtonWidget
+	rootEnt *TEntryWidget
 	pathEnt *TEntryWidget
 	vars    [4]*VariableOpt
 	checks  [4]*TCheckbuttonWidget
@@ -122,8 +123,18 @@ func newDirTab(parent *Window) *dirTab {
 	pane := d.frame.TPanedwindow(Orient("horizontal"))
 	Pack(pane, Expand(true), Fill("both"))
 
-	// Left: directory tree with a scrollbar and a manual refresh.
+	// Left: Root with a manual refresh beside it, over the directory tree.
 	left := pane.TFrame()
+	head := left.TFrame()
+	d.rootEnt = head.TEntry(Textvariable(""), State("readonly"), Width(16))
+	// A glyph rather than the word, so the button leaves the entry beside it as
+	// much width as possible for a long root; the tooltip carries the word.
+	d.refresh = head.TButton(Txt("↻"), Width(2))
+	Tooltip(d.refresh, "Refresh")
+	Grid(d.rootEnt, Row(0), Column(0), Sticky("we"))
+	Grid(d.refresh, Row(0), Column(1), Padx("1m 0"))
+	GridColumnConfigure(head, 0, Weight(1))
+
 	sb := left.TScrollbar()
 	d.tree = left.TTreeview(
 		Selectmode("browse"),
@@ -141,11 +152,10 @@ func newDirTab(parent *Window) *dirTab {
 	tclEval(fmt.Sprintf("font create %s {*}[font actual TkDefaultFont] -slant italic", hiddenFont))
 	d.tree.TagConfigure(hiddenTag, Font(hiddenFont))
 
-	d.refresh = left.TButton(Txt("Refresh"))
-	Grid(d.tree, Row(0), Column(0), Sticky("news"))
-	Grid(sb, Row(0), Column(1), Sticky("ns"))
-	Grid(d.refresh, Row(1), Column(0), Columnspan(2), Sticky("w"), Pady("1m"))
-	GridRowConfigure(left, 0, Weight(1))
+	Grid(head, Row(0), Column(0), Columnspan(2), Sticky("we"), Pady("1m"))
+	Grid(d.tree, Row(1), Column(0), Sticky("news"))
+	Grid(sb, Row(1), Column(1), Sticky("ns"))
+	GridRowConfigure(left, 1, Weight(1))
 	GridColumnConfigure(left, 0, Weight(1))
 
 	// Right: permissions for the selected directory.
@@ -376,14 +386,16 @@ func (d *dirTab) rebuild(root string, keepState bool) {
 	}
 
 	d.shownRoot = root
+	d.setEntry(d.rootEnt, root)
 	if root == "" {
 		d.updateSelection()
 		return
 	}
 
-	rootID := d.insert("", root, root)
-	d.expand(rootID)
-	d.restoreExpansion(rootID)
+	// Root's subdirectories are the top-level rows; Root itself gets no row,
+	// which is why fill has to accept "" as a node.
+	d.fill("")
+	d.restoreExpansion("")
 	d.restoreSelection()
 	d.restoreScroll(top)
 	d.updateSelection()
@@ -409,13 +421,8 @@ func (d *dirTab) insert(parentID, dir, label string) string {
 // filters them. And only the matching directory is marked, not its descendants:
 // they are unreachable by *browsing* down from a hidden parent, but each is
 // still served, and claiming otherwise would overstate what the pattern did.
-//
-// The tree's own root is never marked. It is the served root, so it appears in
-// no listing to be filtered out of in the first place; comparing against
-// shownRoot identifies it without asking Tk for each row's parent, which
-// refreshHidden would pay for once per loaded row.
 func (d *dirTab) isHidden(dir string) bool {
-	return d.hide != nil && dir != d.shownRoot && d.hide.MatchString(filepath.Base(dir))
+	return d.hide != nil && d.hide.MatchString(filepath.Base(dir))
 }
 
 // setHide recompiles the filter from the Hide entry, reporting whether it
@@ -445,6 +452,15 @@ func (d *dirTab) refreshHidden() {
 	}
 }
 
+// dirOf returns the directory a node stands for. The empty id is the tree's own
+// root, which has no row and therefore no paths entry: it stands for Root.
+func (d *dirTab) dirOf(id string) string {
+	if id == "" {
+		return d.shownRoot
+	}
+	return d.paths[id]
+}
+
 // fill replaces a node's placeholder with its subdirectories.
 func (d *dirTab) fill(id string) {
 	d.loaded[id] = true
@@ -452,13 +468,16 @@ func (d *dirTab) fill(id string) {
 		d.forget(kid)
 	}
 
-	dir := d.paths[id]
+	dir := d.dirOf(id)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		// Unreadable directories are ordinary (permissions), and browsing near
 		// /root or /etc would otherwise mean a dialog per node. Grey the row
-		// instead, so "empty" stays distinguishable from "can't look".
-		d.tree.TagAdd("unreadable", id)
+		// instead, so "empty" stays distinguishable from "can't look" — except
+		// for Root, which has no row and is left to its hint alone.
+		if id != "" {
+			d.tree.TagAdd("unreadable", id)
+		}
 		d.insertHint(id, hintUnreadable)
 		return
 	}
@@ -704,23 +723,28 @@ func (d *dirTab) refreshAbbrs() {
 func (d *dirTab) updateSelection() {
 	want := paneState{valid: true}
 
+	var globals [4]bool
+	if d.globals != nil {
+		globals = d.globals()
+	}
+
+	// A global switch says the same thing about every directory, so it is
+	// reported without waiting for one to be picked.
 	if d.sel == "" {
-		d.setPath(noDirSelected)
+		d.setEntry(d.pathEnt, noDirSelected)
 		for i := range want.state {
 			want.state[i] = "disabled"
+			if globals[i] {
+				want.checked[i], want.hint[i] = true, "(granted globally)"
+			}
 		}
 		d.applyPane(want)
 		return
 	}
 
-	d.setPath(d.sel)
+	d.setEntry(d.pathEnt, d.relPath(d.sel))
 	own := d.perms.get(d.sel)
-	inherited, from := d.perms.inherited(d.sel)
-
-	var globals [4]bool
-	if d.globals != nil {
-		globals = d.globals()
-	}
+	inherited := d.perms.inherited(d.sel)
 
 	for i, bit := range permOrder {
 		state, hint := "normal", ""
@@ -729,7 +753,7 @@ func (d *dirTab) updateSelection() {
 		case globals[i]:
 			state, hint, checked = "disabled", "(granted globally)", true
 		case inherited&bit != 0:
-			state, hint, checked = "disabled", "(inherited from "+from[bit]+")", true
+			state, hint, checked = "disabled", "(inherited from parent)", true
 		}
 		if d.locked {
 			state = "disabled"
@@ -756,13 +780,26 @@ func (d *dirTab) applyPane(want paneState) {
 	d.shown = want
 }
 
-// setPath shows a path in the readonly entry, scrolled back to its start: the
+// relPath spells dir relative to Root, which the header states once for every
+// row. filepath.Rel fails only on a path outside Root, which no row is.
+func (d *dirTab) relPath(dir string) string {
+	if d.shownRoot == "" {
+		return dir
+	}
+	rel, err := filepath.Rel(d.shownRoot, dir)
+	if err != nil {
+		return dir
+	}
+	return rel
+}
+
+// setEntry writes text to a readonly entry, scrolled back to its start: the
 // entry keeps the horizontal offset it had when the text changes, which would
-// leave a newly selected path showing from somewhere in its middle. tk9.0 wraps
+// leave a newly written path showing from somewhere in its middle. tk9.0 wraps
 // xview only for TextWidget, hence the raw Tcl call.
-func (d *dirTab) setPath(path string) {
-	d.pathEnt.Configure(Textvariable(path))
-	tclEval(fmt.Sprintf("%s xview 0", d.pathEnt))
+func (d *dirTab) setEntry(e *TEntryWidget, text string) {
+	e.Configure(Textvariable(text))
+	tclEval(fmt.Sprintf("%s xview 0", e))
 }
 
 // setDirTabLocked freezes the right pane while the server runs. The tree and
