@@ -10,6 +10,7 @@ const (
 	urlAppRepo = "https://github.com/mjpclab/go-http-file-server-gui"
 	urlGhfs    = "https://github.com/mjpclab/go-http-file-server"
 	urlTk      = "https://pkg.go.dev/modernc.org/tk9.0"
+	urlGo      = "https://go.dev/"
 )
 
 // newAboutTab builds the About tab: the application icon and name, its own
@@ -41,7 +42,7 @@ func newAboutTab(parent *Window) *TFrameWidget {
 	}{
 		{modGhfs, urlGhfs, info.ghfs},
 		{modTk, urlTk, info.tk},
-		{"Go", "", info.goVer},
+		{"Go", urlGo, info.goVer},
 		{"Platform", "", info.platform},
 	}
 	for i, r := range rows {
