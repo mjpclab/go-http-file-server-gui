@@ -370,8 +370,8 @@ func newUI() *uiWidgets {
 	Grid(del, Row(0), Column(3), Padx("1m"))
 	Grid(cors, Row(0), Column(4), Padx("1m"))
 
-	formRow(general.Window, 0, "Root", root, rootPick)
-	formEntryRow(general.Window, 1, "Listen", listen)
+	formEntryRow(general.Window, 0, "Listen", listen)
+	formRow(general.Window, 1, "Root", root, rootPick)
 	Grid(general.TLabel(Txt("Options")), Row(2), Column(0), Sticky("w"), Padx("1m"), Pady("1m"))
 	Grid(options, Row(2), Column(1), Columnspan(2), Sticky("w"), Padx("1m"), Pady("1m"))
 	formEntryRow(general.Window, 3, "Dir Index", dirIndex)
