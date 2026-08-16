@@ -65,8 +65,10 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 VIAddVersionKey "CompanyName" "${APP_PUBLISHER}"
 VIAddVersionKey "LegalCopyright" "Copyright (c) 2024 ${APP_PUBLISHER}"
 
-!define MUI_ICON "${ROOT}/Icon.ico"
-!define MUI_UNICON "${ROOT}/Icon.ico"
+; Icon.ico badged with NSIS's stock emblem, generated and committed by
+; build/gen_setup_ico.sh.
+!define MUI_ICON "${ROOT}/build/icons/setup.ico"
+!define MUI_UNICON "${ROOT}/build/icons/uninstall.ico"
 !define MUI_ABORTWARNING
 
 ; Whether the uninstaller should also drop %AppData%\ghfs-gui.
