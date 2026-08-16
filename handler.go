@@ -152,6 +152,10 @@ func createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 		DeleteDirs:    perms.dirsWith(permDelete),
 		CorsDirs:      perms.dirsWith(permCors),
 		CertKeyPaths:  certKeyPaths,
+		// EntriesToKVs is ghfs's own "<name>:<value>" split, the same one --global-header
+		// goes through; it drops an entry without a colon on either side rather than
+		// erroring, so a half-typed header is ignored instead of blocking Start.
+		GlobalHeaders: param.EntriesToKVs(parseMultiValues(widgets.headers.Textvariable())),
 	}})
 	if len(errs) > 0 {
 		return

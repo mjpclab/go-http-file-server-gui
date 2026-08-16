@@ -25,6 +25,7 @@ type preference struct {
 	ListenTLS   string `json:"listenTls"`
 	Cert        string `json:"cert"`
 	Key         string `json:"key"`
+	Headers     string `json:"headers"`
 	// DirPerms maps an absolute directory path to the permissions granted on
 	// it, e.g. {"/srv/share/pub": ["archive", "upload"]}.
 	DirPerms map[string][]string `json:"dirPerms"`
@@ -69,6 +70,7 @@ func loadPreference(widgets *uiWidgets) {
 	widgets.listenTLS.Configure(Textvariable(pref.ListenTLS))
 	widgets.tlsCert.Configure(Textvariable(nativePath(pref.Cert)))
 	widgets.tlsKey.Configure(Textvariable(nativePath(pref.Key)))
+	widgets.headers.Configure(Textvariable(pref.Headers))
 
 	// Grants name absolute paths, so drop any that the saved root no longer
 	// covers or that have since disappeared. The tree itself is left unbuilt:
@@ -108,6 +110,7 @@ func savePreference(widgets *uiWidgets) {
 		ListenTLS:   widgets.listenTLS.Textvariable(),
 		Cert:        widgets.tlsCert.Textvariable(),
 		Key:         widgets.tlsKey.Textvariable(),
+		Headers:     widgets.headers.Textvariable(),
 		DirPerms:    widgets.dir.perms.toJSON(),
 		Width:       widgets.winW,
 		Height:      widgets.winH,

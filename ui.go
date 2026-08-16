@@ -292,6 +292,7 @@ type uiWidgets struct {
 	tlsCertPick *TButtonWidget
 	tlsKey      *TEntryWidget
 	tlsKeyPick  *TButtonWidget
+	headers     *TEntryWidget
 
 	links *linksTab
 
@@ -388,10 +389,12 @@ func newUI() *uiWidgets {
 	tlsCertPick := advanced.TButton(Txt("..."), Width(3))
 	tlsKey := advanced.TEntry(Textvariable(""))
 	tlsKeyPick := advanced.TButton(Txt("..."), Width(3))
+	headers := advanced.TEntry(Textvariable(""))
 	formEntryRow(advanced.Window, 0, "Listen Plain", listenPlain)
 	formEntryRow(advanced.Window, 1, "Listen TLS", listenTLS)
 	formRow(advanced.Window, 2, "TLS Certificate", tlsCert, tlsCertPick)
 	formRow(advanced.Window, 3, "TLS Key", tlsKey, tlsKeyPick)
+	formEntryRow(advanced.Window, 4, "Headers", headers)
 	GridColumnConfigure(advanced, 1, Weight(1))
 
 	// Links tab: clickable URLs, populated after the server starts.
@@ -443,6 +446,7 @@ func newUI() *uiWidgets {
 		tlsCertPick: tlsCertPick,
 		tlsKey:      tlsKey,
 		tlsKeyPick:  tlsKeyPick,
+		headers:     headers,
 
 		links: links,
 
@@ -457,6 +461,7 @@ func newUI() *uiWidgets {
 			dirIndex.Window, hide.Window,
 			listenPlain.Window, listenTLS.Window,
 			tlsCert.Window, tlsKey.Window,
+			headers.Window,
 		},
 		// Two Directory tab widgets are deliberately absent here.
 		// The tree: ttk::treeview has no -state option, so configuring one
