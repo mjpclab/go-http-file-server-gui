@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// perm is one of the four directory-level permissions ghfs can grant.
+// perm is one of the directory-level permissions ghfs can grant.
 type perm uint8
 
 const (
@@ -16,17 +16,21 @@ const (
 	permUpload
 	permMkdir
 	permDelete
+	permCors
 )
+
+const permCount = 5
 
 // permOrder fixes the order used by the Directory tab's parallel arrays and by
 // the tree's abbreviation column. It matches the General tab's layout.
-var permOrder = [4]perm{permArchive, permUpload, permMkdir, permDelete}
+var permOrder = [permCount]perm{permArchive, permUpload, permMkdir, permDelete, permCors}
 
 var permLabels = map[perm]string{
 	permArchive: "Archive",
 	permUpload:  "Upload",
 	permMkdir:   "Mkdir",
 	permDelete:  "Delete",
+	permCors:    "CORS",
 }
 
 // permKeys are the stable names written to preference.json.
@@ -35,6 +39,7 @@ var permKeys = map[perm]string{
 	permUpload:  "upload",
 	permMkdir:   "mkdir",
 	permDelete:  "delete",
+	permCors:    "cors",
 }
 
 var permAbbrs = map[perm]string{
@@ -42,6 +47,7 @@ var permAbbrs = map[perm]string{
 	permUpload:  "U",
 	permMkdir:   "M",
 	permDelete:  "D",
+	permCors:    "C",
 }
 
 // caseInsensitiveFS mirrors ghfs, which compares filesystem paths
@@ -129,7 +135,7 @@ func (p *dirPerms) inherited(dir string) (bits perm) {
 }
 
 // dirsWith returns the directories carrying bit, for one of param.Param's
-// ArchiveDirs/UploadDirs/MkdirDirs/DeleteDirs fields.
+// ArchiveDirs/UploadDirs/MkdirDirs/DeleteDirs/CorsDirs fields.
 func (p *dirPerms) dirsWith(bit perm) []string {
 	var dirs []string
 	for dir, v := range p.m {

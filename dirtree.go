@@ -15,7 +15,7 @@ import (
 )
 
 // dirTab is the Directory tab: Root above a lazily populated tree of the
-// directories under it on the left, and the four permission toggles for the
+// directories under it on the left, and the permission toggles for the
 // selected directory on the right.
 type dirTab struct {
 	frame   *TFrameWidget
@@ -23,15 +23,15 @@ type dirTab struct {
 	refresh *TButtonWidget
 	rootEnt *TEntryWidget
 	pathEnt *TEntryWidget
-	vars    [4]*VariableOpt
-	checks  [4]*TCheckbuttonWidget
-	hints   [4]*TLabelWidget
+	vars    [permCount]*VariableOpt
+	checks  [permCount]*TCheckbuttonWidget
+	hints   [permCount]*TLabelWidget
 
 	perms *dirPerms
 
-	// globals reports the General tab's four global switches, in permOrder.
+	// globals reports the General tab's global switches, in permOrder.
 	// Wired during attachDirHandlers; nil until then.
-	globals func() [4]bool
+	globals func() [permCount]bool
 
 	paths  map[string]string // item id  -> absolute path
 	ids    map[string]string // absolute path -> item id
@@ -64,9 +64,9 @@ type dirTab struct {
 // the whole tree.
 type paneState struct {
 	valid   bool // false until the first write, so zero values are not trusted
-	checked [4]bool
-	state   [4]string
-	hint    [4]string
+	checked [permCount]bool
+	state   [permCount]string
+	hint    [permCount]string
 }
 
 const noDirSelected = "(no directory selected)"
@@ -144,7 +144,7 @@ func newDirTab(parent *Window) *dirTab {
 	)
 	sb.Configure(Command(func(e *Event) { e.Yview(d.tree) }))
 	d.tree.Column("#0", Width(240), Anchor("w"))
-	d.tree.Column("perm", Width(70), Anchor("w"))
+	d.tree.Column("perm", Width(85), Anchor("w"))
 	d.tree.Heading("#0", Txt("Directory"), Anchor("w"))
 	d.tree.Heading("perm", Txt("Perm"), Anchor("w"))
 	d.tree.TagConfigure("unreadable", Foreground("#888888"))
@@ -186,12 +186,13 @@ func newDirTab(parent *Window) *dirTab {
 // newDirTab to match the build-then-wire order main.go relies on.
 func attachDirHandlers(widgets *uiWidgets) {
 	d := widgets.dir
-	d.globals = func() [4]bool {
-		return [4]bool{
+	d.globals = func() [permCount]bool {
+		return [permCount]bool{
 			widgets.archive.Get() == "1",
 			widgets.upload.Get() == "1",
 			widgets.mkdir.Get() == "1",
 			widgets.del.Get() == "1",
+			widgets.cors.Get() == "1",
 		}
 	}
 
@@ -723,7 +724,7 @@ func (d *dirTab) refreshAbbrs() {
 func (d *dirTab) updateSelection() {
 	want := paneState{valid: true}
 
-	var globals [4]bool
+	var globals [permCount]bool
 	if d.globals != nil {
 		globals = d.globals()
 	}

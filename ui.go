@@ -258,7 +258,7 @@ const (
 	// The Directory tab's tree needs the extra room; winHeight has to stay
 	// above minHeight or the window opens already clamped to its minimum.
 	winWidth, winHeight = 650, 520
-	minWidth, minHeight = 500, 420
+	minWidth, minHeight = 550, 420
 
 	// wmClass is the main window's WM_CLASS class name. Desktop shells match it
 	// against StartupWMClass in build/ghfs-gui.desktop, so the two have to stay
@@ -278,8 +278,9 @@ type uiWidgets struct {
 	upload   *VariableOpt
 	mkdir    *VariableOpt
 	del      *VariableOpt
-	// globalPerms are the four General tab checkbuttons, in permOrder.
-	globalPerms [4]*TCheckbuttonWidget
+	cors     *VariableOpt
+	// globalPerms are the General tab permission checkbuttons, in permOrder.
+	globalPerms [permCount]*TCheckbuttonWidget
 	dirIndex    *TEntryWidget
 	hide        *TEntryWidget
 
@@ -355,15 +356,18 @@ func newUI() *uiWidgets {
 	uploadVar := Variable("0")
 	mkdirVar := Variable("0")
 	delVar := Variable("0")
+	corsVar := Variable("0")
 	options := general.TFrame()
-	archive := options.TCheckbutton(Txt("Archive"), archiveVar)
-	upload := options.TCheckbutton(Txt("Upload"), uploadVar)
-	mkdir := options.TCheckbutton(Txt("Mkdir"), mkdirVar)
-	del := options.TCheckbutton(Txt("Delete"), delVar)
+	archive := options.TCheckbutton(Txt(permLabels[permArchive]), archiveVar)
+	upload := options.TCheckbutton(Txt(permLabels[permUpload]), uploadVar)
+	mkdir := options.TCheckbutton(Txt(permLabels[permMkdir]), mkdirVar)
+	del := options.TCheckbutton(Txt(permLabels[permDelete]), delVar)
+	cors := options.TCheckbutton(Txt(permLabels[permCors]), corsVar)
 	Grid(archive, Row(0), Column(0), Padx("1m"))
 	Grid(upload, Row(0), Column(1), Padx("1m"))
 	Grid(mkdir, Row(0), Column(2), Padx("1m"))
 	Grid(del, Row(0), Column(3), Padx("1m"))
+	Grid(cors, Row(0), Column(4), Padx("1m"))
 
 	formRow(general.Window, 0, "Root", root, rootPick)
 	formEntryRow(general.Window, 1, "Listen", listen)
@@ -425,8 +429,9 @@ func newUI() *uiWidgets {
 		upload:   uploadVar,
 		mkdir:    mkdirVar,
 		del:      delVar,
+		cors:     corsVar,
 
-		globalPerms: [4]*TCheckbuttonWidget{archive, upload, mkdir, del},
+		globalPerms: [permCount]*TCheckbuttonWidget{archive, upload, mkdir, del, cors},
 		dirIndex:    dirIndex,
 		hide:        hide,
 
@@ -463,7 +468,7 @@ func newUI() *uiWidgets {
 		// rather than a blanket re-enable.
 		lockedControls: []*Window{
 			rootPick.Window,
-			archive.Window, upload.Window, mkdir.Window, del.Window,
+			archive.Window, upload.Window, mkdir.Window, del.Window, cors.Window,
 			dir.refresh.Window,
 			tlsCertPick.Window, tlsKeyPick.Window,
 		},

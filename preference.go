@@ -18,6 +18,7 @@ type preference struct {
 	Upload      bool   `json:"upload"`
 	Mkdir       bool   `json:"mkdir"`
 	Del         bool   `json:"del"`
+	Cors        bool   `json:"cors"`
 	DirIndex    string `json:"dirIndex"`
 	Hide        string `json:"hide"`
 	ListenPlain string `json:"listenPlain"`
@@ -61,6 +62,7 @@ func loadPreference(widgets *uiWidgets) {
 	setChecked(widgets.upload, pref.Upload)
 	setChecked(widgets.mkdir, pref.Mkdir)
 	setChecked(widgets.del, pref.Del)
+	setChecked(widgets.cors, pref.Cors)
 	widgets.dirIndex.Configure(Textvariable(pref.DirIndex))
 	widgets.hide.Configure(Textvariable(pref.Hide))
 	widgets.listenPlain.Configure(Textvariable(pref.ListenPlain))
@@ -99,6 +101,7 @@ func savePreference(widgets *uiWidgets) {
 		Upload:      widgets.upload.Get() == "1",
 		Mkdir:       widgets.mkdir.Get() == "1",
 		Del:         widgets.del.Get() == "1",
+		Cors:        widgets.cors.Get() == "1",
 		DirIndex:    widgets.dirIndex.Textvariable(),
 		Hide:        widgets.hide.Textvariable(),
 		ListenPlain: widgets.listenPlain.Textvariable(),

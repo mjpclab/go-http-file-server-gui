@@ -145,10 +145,12 @@ func createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 		GlobalUpload:  widgets.upload.Get() == "1",
 		GlobalMkdir:   widgets.mkdir.Get() == "1",
 		GlobalDelete:  widgets.del.Get() == "1",
+		GlobalCors:    widgets.cors.Get() == "1",
 		ArchiveDirs:   perms.dirsWith(permArchive),
 		UploadDirs:    perms.dirsWith(permUpload),
 		MkdirDirs:     perms.dirsWith(permMkdir),
 		DeleteDirs:    perms.dirsWith(permDelete),
+		CorsDirs:      perms.dirsWith(permCors),
 		CertKeyPaths:  certKeyPaths,
 	}})
 	if len(errs) > 0 {
