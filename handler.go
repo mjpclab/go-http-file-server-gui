@@ -140,9 +140,7 @@ func createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 		Hides:        parseMultiValues(widgets.hide.Textvariable()),
 		// GlobalList is the "may list a directory" permission, unrelated to
 		// DirIndexes above, which names the file served in place of that listing.
-		// The GUI has no switch for it: a file server that lists nothing is not
-		// worth starting, so it is on unconditionally.
-		GlobalList:    true,
+		GlobalList:    widgets.list.Get() == "1",
 		GlobalArchive: widgets.archive.Get() == "1",
 		GlobalUpload:  widgets.upload.Get() == "1",
 		GlobalMkdir:   widgets.mkdir.Get() == "1",
@@ -153,6 +151,7 @@ func createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 		MkdirDirs:     perms.dirsWith(permMkdir),
 		DeleteDirs:    perms.dirsWith(permDelete),
 		CorsDirs:      perms.dirsWith(permCors),
+		ListDirs:      perms.dirsWith(permList),
 		CertKeyPaths:  certKeyPaths,
 		// EntriesToKVs is ghfs's own "<name>:<value>" split, the same one --global-header
 		// goes through; it drops an entry without a colon on either side rather than

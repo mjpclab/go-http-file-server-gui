@@ -279,6 +279,7 @@ type uiWidgets struct {
 	mkdir    *VariableOpt
 	del      *VariableOpt
 	cors     *VariableOpt
+	list     *VariableOpt
 	// globalPerms are the General tab permission checkbuttons, in permOrder.
 	globalPerms [permCount]*TCheckbuttonWidget
 	dirIndex    *TEntryWidget
@@ -358,17 +359,20 @@ func newUI() *uiWidgets {
 	mkdirVar := Variable("0")
 	delVar := Variable("0")
 	corsVar := Variable("0")
+	listVar := Variable("0")
 	options := general.TFrame()
 	archive := options.TCheckbutton(Txt(permLabels[permArchive]), archiveVar)
 	upload := options.TCheckbutton(Txt(permLabels[permUpload]), uploadVar)
 	mkdir := options.TCheckbutton(Txt(permLabels[permMkdir]), mkdirVar)
 	del := options.TCheckbutton(Txt(permLabels[permDelete]), delVar)
 	cors := options.TCheckbutton(Txt(permLabels[permCors]), corsVar)
+	list := options.TCheckbutton(Txt(permLabels[permList]), listVar)
 	Grid(upload, Row(0), Column(0), Sticky("w"), Padx("1m"))
 	Grid(mkdir, Row(0), Column(1), Sticky("w"), Padx("1m"))
 	Grid(del, Row(0), Column(2), Sticky("w"), Padx("1m"))
 	Grid(archive, Row(1), Column(0), Sticky("w"), Padx("1m"))
 	Grid(cors, Row(1), Column(1), Sticky("w"), Padx("1m"))
+	Grid(list, Row(1), Column(2), Sticky("w"), Padx("1m"))
 
 	formEntryRow(general.Window, 0, "Listen", listen)
 	formRow(general.Window, 1, "Root", root, rootPick)
@@ -433,8 +437,9 @@ func newUI() *uiWidgets {
 		mkdir:    mkdirVar,
 		del:      delVar,
 		cors:     corsVar,
+		list:     listVar,
 
-		globalPerms: [permCount]*TCheckbuttonWidget{archive, upload, mkdir, del, cors},
+		globalPerms: [permCount]*TCheckbuttonWidget{archive, upload, mkdir, del, cors, list},
 		dirIndex:    dirIndex,
 		hide:        hide,
 
@@ -474,6 +479,7 @@ func newUI() *uiWidgets {
 		lockedControls: []*Window{
 			rootPick.Window,
 			archive.Window, upload.Window, mkdir.Window, del.Window, cors.Window,
+			list.Window,
 			dir.refresh.Window,
 			tlsCertPick.Window, tlsKeyPick.Window,
 		},

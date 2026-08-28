@@ -80,6 +80,15 @@ const (
 	hintUnreadable = "(cannot be read)"
 )
 
+// The right pane's hints share a row with the checkbutton they annotate, in a
+// column the paned window sizes, so they are kept terse enough to fit beside it
+// at the default window width. The checkbutton already names the permission;
+// the hint only has to say where the grant is coming from.
+const (
+	hintGlobal    = "(global)"
+	hintInherited = "(inherited)"
+)
+
 // Label rows have no dirTab.paths entry, which is what tells them apart from
 // directories everywhere in this file. The procs are the Tcl-side helpers
 // overrideTreeBindings installs.
@@ -144,7 +153,7 @@ func newDirTab(parent *Window) *dirTab {
 	)
 	sb.Configure(Command(func(e *Event) { e.Yview(d.tree) }))
 	d.tree.Column("#0", Width(240), Anchor("w"))
-	d.tree.Column("perm", Width(85), Anchor("w"))
+	d.tree.Column("perm", Width(100), Anchor("w"))
 	d.tree.Heading("#0", Txt("Directory"), Anchor("w"))
 	d.tree.Heading("perm", Txt("Perm"), Anchor("w"))
 	d.tree.TagConfigure("unreadable", Foreground("#888888"))
@@ -193,6 +202,7 @@ func attachDirHandlers(widgets *uiWidgets) {
 			widgets.mkdir.Get() == "1",
 			widgets.del.Get() == "1",
 			widgets.cors.Get() == "1",
+			widgets.list.Get() == "1",
 		}
 	}
 
@@ -736,7 +746,7 @@ func (d *dirTab) updateSelection() {
 		for i := range want.state {
 			want.state[i] = "disabled"
 			if globals[i] {
-				want.hint[i] = "(granted globally)"
+				want.hint[i] = hintGlobal
 			}
 		}
 		d.applyPane(want)
@@ -751,9 +761,9 @@ func (d *dirTab) updateSelection() {
 		state, hint := "normal", ""
 		switch {
 		case globals[i]:
-			hint = "(granted globally)"
+			hint = hintGlobal
 		case inherited&bit != 0:
-			hint = "(inherited from parent)"
+			hint = hintInherited
 		}
 		if d.locked {
 			state = "disabled"

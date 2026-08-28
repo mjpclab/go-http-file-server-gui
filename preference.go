@@ -13,12 +13,16 @@ type preference struct {
 	// The multi-value fields are stored as the raw text of their entry, not as
 	// the parsed list: the form is the source of truth, so what the user typed
 	// comes back verbatim rather than re-spelled with one separator.
-	Listen      string `json:"listen"`
-	Archive     bool   `json:"archive"`
-	Upload      bool   `json:"upload"`
-	Mkdir       bool   `json:"mkdir"`
-	Del         bool   `json:"del"`
-	Cors        bool   `json:"cors"`
+	Listen  string `json:"listen"`
+	Archive bool   `json:"archive"`
+	Upload  bool   `json:"upload"`
+	Mkdir   bool   `json:"mkdir"`
+	Del     bool   `json:"del"`
+	Cors    bool   `json:"cors"`
+	// List defaults to true when absent: a server that lists nothing is a
+	// surprising thing to be handed by an upgrade, so a preference file written
+	// before this option existed keeps the behaviour it had.
+	List        bool   `json:"list"`
 	DirIndex    string `json:"dirIndex"`
 	Hide        string `json:"hide"`
 	ListenPlain string `json:"listenPlain"`
@@ -47,7 +51,7 @@ func preferencePath() (string, error) {
 }
 
 func loadPreference(widgets *uiWidgets) {
-	pref := preference{Listen: "8080"}
+	pref := preference{Listen: "8080", List: true}
 	if path, err := preferencePath(); err == nil {
 		if data, err := os.ReadFile(path); err == nil {
 			_ = json.Unmarshal(data, &pref)
@@ -64,6 +68,7 @@ func loadPreference(widgets *uiWidgets) {
 	setChecked(widgets.mkdir, pref.Mkdir)
 	setChecked(widgets.del, pref.Del)
 	setChecked(widgets.cors, pref.Cors)
+	setChecked(widgets.list, pref.List)
 	widgets.dirIndex.Configure(Textvariable(pref.DirIndex))
 	widgets.hide.Configure(Textvariable(pref.Hide))
 	widgets.listenPlain.Configure(Textvariable(pref.ListenPlain))
@@ -104,6 +109,7 @@ func savePreference(widgets *uiWidgets) {
 		Mkdir:       widgets.mkdir.Get() == "1",
 		Del:         widgets.del.Get() == "1",
 		Cors:        widgets.cors.Get() == "1",
+		List:        widgets.list.Get() == "1",
 		DirIndex:    widgets.dirIndex.Textvariable(),
 		Hide:        widgets.hide.Textvariable(),
 		ListenPlain: widgets.listenPlain.Textvariable(),

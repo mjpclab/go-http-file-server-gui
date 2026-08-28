@@ -17,13 +17,14 @@ const (
 	permMkdir
 	permDelete
 	permCors
+	permList
 )
 
-const permCount = 5
+const permCount = 6
 
 // permOrder fixes the order used by the Directory tab's parallel arrays and by
 // the tree's abbreviation column. It matches the General tab's layout.
-var permOrder = [permCount]perm{permArchive, permUpload, permMkdir, permDelete, permCors}
+var permOrder = [permCount]perm{permArchive, permUpload, permMkdir, permDelete, permCors, permList}
 
 var permLabels = map[perm]string{
 	permArchive: "Archive",
@@ -31,6 +32,7 @@ var permLabels = map[perm]string{
 	permMkdir:   "Mkdir",
 	permDelete:  "Delete",
 	permCors:    "CORS",
+	permList:    "List",
 }
 
 // permKeys are the stable names written to preference.json.
@@ -40,6 +42,7 @@ var permKeys = map[perm]string{
 	permMkdir:   "mkdir",
 	permDelete:  "delete",
 	permCors:    "cors",
+	permList:    "list",
 }
 
 var permAbbrs = map[perm]string{
@@ -48,6 +51,7 @@ var permAbbrs = map[perm]string{
 	permMkdir:   "M",
 	permDelete:  "D",
 	permCors:    "C",
+	permList:    "L",
 }
 
 // caseInsensitiveFS mirrors ghfs, which compares filesystem paths
