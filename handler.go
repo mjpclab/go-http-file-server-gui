@@ -130,17 +130,19 @@ func createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 	// filesystem path names the directory itself: it stays correct if aliases
 	// or vhosts are ever added, and it cannot silently follow Root elsewhere.
 	perms := widgets.dir.perms
-	// IndexUrls is the "may list a directory" permission, unrelated to
-	// DirIndexes below, which names the file served in place of that listing.
 	params, errs := param.NewParams([]param.Param{{
-		Listens:       parseMultiValues(widgets.listen.Textvariable()),
-		ListensPlain:  parseMultiValues(widgets.listenPlain.Textvariable()),
-		ListensTLS:    parseMultiValues(widgets.listenTLS.Textvariable()),
-		IndexUrls:     []string{"/"},
-		Root:          widgets.root.Textvariable(),
-		DefaultSort:   "/n",
-		DirIndexes:    parseMultiValues(widgets.dirIndex.Textvariable()),
-		Hides:         parseMultiValues(widgets.hide.Textvariable()),
+		Listens:      parseMultiValues(widgets.listen.Textvariable()),
+		ListensPlain: parseMultiValues(widgets.listenPlain.Textvariable()),
+		ListensTLS:   parseMultiValues(widgets.listenTLS.Textvariable()),
+		Root:         widgets.root.Textvariable(),
+		DefaultSort:  "/n",
+		DirIndexes:   parseMultiValues(widgets.dirIndex.Textvariable()),
+		Hides:        parseMultiValues(widgets.hide.Textvariable()),
+		// GlobalList is the "may list a directory" permission, unrelated to
+		// DirIndexes above, which names the file served in place of that listing.
+		// The GUI has no switch for it: a file server that lists nothing is not
+		// worth starting, so it is on unconditionally.
+		GlobalList:    true,
 		GlobalArchive: widgets.archive.Get() == "1",
 		GlobalUpload:  widgets.upload.Get() == "1",
 		GlobalMkdir:   widgets.mkdir.Get() == "1",
