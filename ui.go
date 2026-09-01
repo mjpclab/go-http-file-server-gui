@@ -17,10 +17,11 @@ func applySystemTheme() {
 		dark = true
 	}
 
-	var linkColor string
+	var linkColor, readonlyColor string
 	if dark {
 		ActivateTheme("azure dark")
 		linkColor = "#90caf9"
+		readonlyColor = "#909090"
 		// Azure dark's default disabled foreground (#aaaaaa) is too close to
 		// the enabled #ffffff; the button face is the #333 window background
 		// (rect-basic is transparent), so #909090 stays legible while widening
@@ -29,10 +30,16 @@ func applySystemTheme() {
 	} else {
 		ActivateTheme("azure light")
 		linkColor = "#1565c0"
+		readonlyColor = "#737373"
 	}
 
 	linkFont := NewFont(Family("TkDefaultFont"), Underline(true))
 	StyleConfigure("Link.TLabel", Foreground(linkColor), Font(linkFont))
+
+	// Azure draws a readonly entry exactly like an editable one, and its field
+	// is an image rather than a -fieldbackground, so the text is the only
+	// channel left to mark the running-state lock with.
+	StyleMap("TEntry", Foreground, "readonly", readonlyColor)
 
 	useLargerThemeTiles()
 	useBuiltinTreeIndicator()
@@ -306,8 +313,8 @@ type uiWidgets struct {
 	winW, winH int
 	winMax     bool
 
-	// While the server runs, inputs become readonly (still selectable/
-	// copyable, not greyed) and non-text controls become disabled.
+	// While the server runs, inputs become readonly (greyed text, still
+	// selectable/copyable) and non-text controls become disabled.
 	lockedInputs   []*Window
 	lockedControls []*Window
 }
