@@ -130,11 +130,16 @@ func createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 	// filesystem path names the directory itself: it stays correct if aliases
 	// or vhosts are ever added, and it cannot silently follow Root elsewhere.
 	perms := widgets.dir.perms
+	// An empty Root would otherwise be resolved to the working directory by
+	// param.NewParams (filepath.Abs("")), serving whatever the app was started
+	// from. EmptyRoot makes ghfs serve an empty listing instead.
+	root := widgets.root.Textvariable()
 	params, errs := param.NewParams([]param.Param{{
 		Listens:      parseMultiValues(widgets.listen.Textvariable()),
 		ListensPlain: parseMultiValues(widgets.listenPlain.Textvariable()),
 		ListensTLS:   parseMultiValues(widgets.listenTLS.Textvariable()),
-		Root:         widgets.root.Textvariable(),
+		Root:         root,
+		EmptyRoot:    len(root) == 0,
 		DefaultSort:  "/n",
 		DirIndexes:   parseMultiValues(widgets.dirIndex.Textvariable()),
 		Hides:        parseMultiValues(widgets.hide.Textvariable()),
