@@ -53,6 +53,7 @@ SetCompressor /SOLID lzma
 !include LogicLib.nsh
 !include nsDialogs.nsh
 !include FileFunc.nsh
+!include Sections.nsh
 
 Name "${APP_NAME}"
 OutFile "${ROOT}/${OUTFILE}"
@@ -76,19 +77,16 @@ Var DeleteConfig
 Var DeleteConfigCheckbox
 
 ; Pages. No license page: the app is MIT and the text adds a click for nothing.
+; The components page carries the optional tasks and sits after the directory
+; page, so both are decided on the last page before any file is copied.
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MULTIUSER_PAGE_INSTALLMODE
 !insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
 
-; The finish page's "show readme" checkbox is NSIS's documented hook for an
-; optional post-install action. There is deliberately no "run now" checkbox:
-; an all-users install runs elevated, so the file server would inherit
-; administrator rights.
-!define MUI_FINISHPAGE_SHOWREADME ""
-!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
-!define MUI_FINISHPAGE_SHOWREADME_TEXT "$(TEXT_DESKTOP_SHORTCUT)"
-!define MUI_FINISHPAGE_SHOWREADME_FUNCTION CreateDesktopShortcut
+; There is deliberately no "run now" checkbox: an all-users install runs
+; elevated, so the file server would inherit administrator rights.
 !insertmacro MUI_PAGE_FINISH
 
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -100,8 +98,17 @@ UninstPage custom un.ConfigPageShow un.ConfigPageLeave
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "SimpChinese"
 
-LangString TEXT_DESKTOP_SHORTCUT ${LANG_ENGLISH} "Create a desktop shortcut"
-LangString TEXT_DESKTOP_SHORTCUT ${LANG_SIMPCHINESE} "创建桌面快捷方式"
+LangString TEXT_SEC_DESKTOP ${LANG_ENGLISH} "Create a desktop shortcut"
+LangString TEXT_SEC_DESKTOP ${LANG_SIMPCHINESE} "创建桌面快捷方式"
+LangString TEXT_SEC_DESKTOP_DESC ${LANG_ENGLISH} "Put a shortcut to ${APP_NAME} on the desktop."
+LangString TEXT_SEC_DESKTOP_DESC ${LANG_SIMPCHINESE} "在桌面上创建 ${APP_NAME} 的快捷方式。"
+
+LangString TEXT_SEC_FIREWALL ${LANG_ENGLISH} "Allow through Windows Firewall"
+LangString TEXT_SEC_FIREWALL ${LANG_SIMPCHINESE} "添加 Windows 防火墙允许规则"
+LangString TEXT_SEC_FIREWALL_NOADMIN ${LANG_ENGLISH} "Allow through Windows Firewall (requires administrator)"
+LangString TEXT_SEC_FIREWALL_NOADMIN ${LANG_SIMPCHINESE} "添加 Windows 防火墙允许规则(需要管理员权限)"
+LangString TEXT_SEC_FIREWALL_DESC ${LANG_ENGLISH} "Add an inbound rule for ${APP_EXE} covering private and domain networks, so other machines reach the server without Windows asking first. Public networks are deliberately left out."
+LangString TEXT_SEC_FIREWALL_DESC ${LANG_SIMPCHINESE} "为 ${APP_EXE} 添加入站规则,覆盖专用网络和域网络,局域网内的其他设备无需再确认即可访问。公用网络不在其中。"
 
 LangString TEXT_APP_RUNNING ${LANG_ENGLISH} "${APP_NAME} is running. Please close it and run this again."
 LangString TEXT_APP_RUNNING ${LANG_SIMPCHINESE} "${APP_NAME} 正在运行,请先关闭它,然后重新运行。"
@@ -129,28 +136,6 @@ FunctionEnd
 !insertmacro AbortIfRunning ""
 !insertmacro AbortIfRunning "un."
 
-Function .onInit
-	; The payload is 64-bit, so keep registry writes out of WOW6432Node —
-	; otherwise the uninstall entry is invisible in Apps & features.
-	!if "${ARCH}" != "386"
-		SetRegView 64
-	!endif
-	Call AbortIfRunning
-	!insertmacro MULTIUSER_INIT
-FunctionEnd
-
-Function un.onInit
-	!if "${ARCH}" != "386"
-		SetRegView 64
-	!endif
-	Call un.AbortIfRunning
-	!insertmacro MULTIUSER_UNINIT
-FunctionEnd
-
-Function CreateDesktopShortcut
-	CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
-FunctionEnd
-
 Section "-Application"
 	SetOutPath "$INSTDIR"
 	File "/oname=${APP_EXE}" "${ROOT}/${SRCEXE}"
@@ -175,6 +160,58 @@ Section "-Application"
 	WriteRegDWORD SHCTX "${UNINST_KEY}" "EstimatedSize" $0
 SectionEnd
 
+; Both optional tasks are unchecked by default (/o), matching what the finish
+; page's checkbox used to do.
+Section /o "$(TEXT_SEC_DESKTOP)" SecDesktop
+	CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
+SectionEnd
+
+Section /o "$(TEXT_SEC_FIREWALL)" SecFirewall
+	; A program rule covers every port ghfs may be configured to listen on, so
+	; the rule survives a port change in the GUI. The exit code is logged with
+	; netsh's own output instead of aborting: the files are already in place by
+	; now, and a missing rule only means Windows will ask on first listen.
+	nsExec::ExecToLog 'netsh advfirewall firewall add rule name="${APP_NAME}" \
+		dir=in action=allow program="$INSTDIR\${APP_EXE}" enable=yes \
+		profile=domain,private'
+	Pop $0
+SectionEnd
+
+!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+	!insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} "$(TEXT_SEC_DESKTOP_DESC)"
+	!insertmacro MUI_DESCRIPTION_TEXT ${SecFirewall} "$(TEXT_SEC_FIREWALL_DESC)"
+!insertmacro MUI_FUNCTION_DESCRIPTION_END
+
+; Both init functions sit below the sections because .onInit references
+; ${SecFirewall}: a section index only exists from its definition onwards.
+Function .onInit
+	; The payload is 64-bit, so keep registry writes out of WOW6432Node —
+	; otherwise the uninstall entry is invisible in Apps & features.
+	!if "${ARCH}" != "386"
+		SetRegView 64
+	!endif
+	Call AbortIfRunning
+	!insertmacro MULTIUSER_INIT
+
+	; netsh writes machine-wide rules. An administrator account is already
+	; elevated here (MULTIUSER_EXECUTIONLEVEL Highest), a standard user is not
+	; and never will be, so grey the task out rather than let it fail silently
+	; during the install. $MultiUser.Privileges is set by MULTIUSER_INIT above.
+	${If} $MultiUser.Privileges != "Admin"
+	${AndIf} $MultiUser.Privileges != "Power"
+		SectionSetText ${SecFirewall} "$(TEXT_SEC_FIREWALL_NOADMIN)"
+		!insertmacro SetSectionFlag ${SecFirewall} ${SF_RO}
+	${EndIf}
+FunctionEnd
+
+Function un.onInit
+	!if "${ARCH}" != "386"
+		SetRegView 64
+	!endif
+	Call un.AbortIfRunning
+	!insertmacro MULTIUSER_UNINIT
+FunctionEnd
+
 Function un.ConfigPageShow
 	!insertmacro MUI_HEADER_TEXT "$(TEXT_UNCFG_TITLE)" "$(TEXT_UNCFG_SUBTITLE)"
 	nsDialogs::Create 1018
@@ -194,6 +231,14 @@ Function un.ConfigPageLeave
 FunctionEnd
 
 Section "Uninstall"
+	; Unconditional: nothing records whether the rule was created, and deleting
+	; a rule that does not exist is a no-op. Matched on the program path too, so
+	; a same-named rule from elsewhere is left alone. Done before the .exe goes,
+	; while $INSTDIR still spells what the rule holds.
+	nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="${APP_NAME}" \
+		program="$INSTDIR\${APP_EXE}"'
+	Pop $0
+
 	Delete "$INSTDIR\${APP_EXE}"
 	Delete "$INSTDIR\Uninstall.exe"
 	RMDir "$INSTDIR"
