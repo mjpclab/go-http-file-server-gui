@@ -120,6 +120,26 @@ func TestPruneDropsOutsideRootAndMissing(t *testing.T) {
 	}
 }
 
+// A root that is not there right now (an unmounted drive or share) says nothing
+// about whether the directories under it still exist, so only the prefix rule
+// applies until it is back.
+func TestPruneKeepsGrantsUnderUnreachableRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "unmounted")
+	under := filepath.Join(root, "pub")
+
+	p := newDirPerms()
+	p.set(under, permUpload, true)
+	p.set(filepath.FromSlash("/elsewhere"), permUpload, true)
+
+	p.prune(root)
+	if _, ok := p.m[under]; !ok {
+		t.Error("prune dropped a grant under an unreachable root")
+	}
+	if len(p.m) != 1 {
+		t.Errorf("prune left %v, want only %q", p.m, under)
+	}
+}
+
 // nativePath is what keeps the Root entry spelled the same way as the Directory
 // tree, which builds its rows from filepath — including the empty case, where
 // filepath.Clean would turn a blank entry into ".".

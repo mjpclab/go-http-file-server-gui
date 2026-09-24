@@ -182,15 +182,24 @@ func (p *dirPerms) abbr(dir string) string {
 // absolute filesystem paths, so they stop meaning anything once root moves —
 // re-applying them to a same-named directory elsewhere would silently expose a
 // different set of files.
+//
+// The existence check is skipped while root itself is unreachable: an
+// unmounted drive or share would otherwise wipe every grant under it, and the
+// next save would make that permanent.
 func (p *dirPerms) prune(root string) {
 	if root == "" {
 		p.m = map[string]perm{}
 		return
 	}
 	root = filepath.Clean(root)
+	fi, err := os.Stat(root)
+	rootReachable := err == nil && fi.IsDir()
 	for dir := range p.m {
 		if !hasPathPrefix(dir, root) {
 			delete(p.m, dir)
+			continue
+		}
+		if !rootReachable {
 			continue
 		}
 		if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
