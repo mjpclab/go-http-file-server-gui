@@ -82,6 +82,17 @@ func attachFilePickHandler(parent *Window, button *TButtonWidget, entry *TEntryW
 func attachStartStopHandlers(widgets *uiWidgets) {
 	var appInst *app.App
 
+	// closeApp closes the instance at most once; a second app.Close would close
+	// ghfs's log channels again and panic.
+	closeApp := func() {
+		if appInst == nil {
+			return
+		}
+		inst := appInst
+		appInst = nil
+		inst.Close()
+	}
+
 	widgets.start.Configure(Command(func() {
 		inst, errs := createApp(widgets)
 		if len(errs) > 0 {
@@ -93,9 +104,9 @@ func attachStartStopHandlers(widgets *uiWidgets) {
 		widgets.start.Configure(State("disabled"))
 		widgets.stop.Configure(State("normal"))
 		setInputsEnabled(widgets, false)
-		createLinks(appInst, widgets)
+		createLinks(inst, widgets)
 		go func() {
-			openErrs := appInst.Open()
+			openErrs := inst.Open()
 			// app.Open blocks while serving; UI updates must run on the GUI thread.
 			PostEvent(func() {
 				if len(openErrs) > 0 {
@@ -105,16 +116,14 @@ func attachStartStopHandlers(widgets *uiWidgets) {
 				widgets.stop.Configure(State("disabled"))
 				setInputsEnabled(widgets, true)
 				widgets.start.Configure(State("normal"))
-				appInst = nil
+				// Still set only if Open failed on its own: ghfs then leaves the
+				// log manager, and its goroutine, open.
+				closeApp()
 			}, false)
 		}()
 	}))
 
-	widgets.stop.Configure(Command(func() {
-		if appInst != nil {
-			appInst.Close()
-		}
-	}))
+	widgets.stop.Configure(Command(closeApp))
 }
 
 func createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
