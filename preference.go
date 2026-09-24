@@ -30,6 +30,8 @@ type preference struct {
 	Cert        string `json:"cert"`
 	Key         string `json:"key"`
 	Headers     string `json:"headers"`
+	LogAccess   bool   `json:"logAccess"`
+	LogError    bool   `json:"logError"`
 	// DirPerms maps an absolute directory path to the permissions granted on
 	// it, e.g. {"/srv/share/pub": ["archive", "upload"]}.
 	DirPerms map[string][]string `json:"dirPerms"`
@@ -71,6 +73,8 @@ func loadPreference(widgets *uiWidgets) {
 	setChecked(widgets.list, pref.List)
 	widgets.dirIndex.Configure(Textvariable(pref.DirIndex))
 	widgets.hide.Configure(Textvariable(pref.Hide))
+	setChecked(widgets.logAccess, pref.LogAccess)
+	setChecked(widgets.logError, pref.LogError)
 	widgets.listenPlain.Configure(Textvariable(pref.ListenPlain))
 	widgets.listenTLS.Configure(Textvariable(pref.ListenTLS))
 	widgets.tlsCert.Configure(Textvariable(nativePath(pref.Cert)))
@@ -112,6 +116,8 @@ func savePreference(widgets *uiWidgets) {
 		List:        widgets.list.Get() == "1",
 		DirIndex:    widgets.dirIndex.Textvariable(),
 		Hide:        widgets.hide.Textvariable(),
+		LogAccess:   widgets.logAccess.Get() == "1",
+		LogError:    widgets.logError.Get() == "1",
 		ListenPlain: widgets.listenPlain.Textvariable(),
 		ListenTLS:   widgets.listenTLS.Textvariable(),
 		Cert:        widgets.tlsCert.Textvariable(),

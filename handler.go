@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strconv"
 
@@ -167,7 +168,16 @@ func createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 		return
 	}
 
-	appInst, errs = app.NewApp(params)
+	// Left as untyped nil when unchecked: a nil *logWriter stored in the
+	// interface would pass ghfs's nil test and be written to.
+	var accessLog, errorLog io.Writer
+	if widgets.logAccess.Get() == "1" {
+		accessLog = widgets.logs.accessLog
+	}
+	if widgets.logError.Get() == "1" {
+		errorLog = widgets.logs.errorLog
+	}
+	appInst, errs = app.NewWriterLogApp(params, [][2]io.Writer{{accessLog, errorLog}})
 	return
 }
 

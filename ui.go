@@ -22,6 +22,7 @@ func applySystemTheme() {
 		ActivateTheme("azure dark")
 		linkColor = "#90caf9"
 		readonlyColor = "#909090"
+		logErrorColor = "#e05555"
 		// Azure dark's default disabled foreground (#aaaaaa) is too close to
 		// the enabled #ffffff; the button face is the #333 window background
 		// (rect-basic is transparent), so #909090 stays legible while widening
@@ -291,6 +292,8 @@ type uiWidgets struct {
 	globalPerms [permCount]*TCheckbuttonWidget
 	dirIndex    *TEntryWidget
 	hide        *TEntryWidget
+	logAccess   *VariableOpt
+	logError    *VariableOpt
 
 	dir *dirTab
 
@@ -303,6 +306,7 @@ type uiWidgets struct {
 	headers     *TEntryWidget
 
 	links *linksTab
+	logs  *logsTab
 
 	start *TButtonWidget
 	stop  *TButtonWidget
@@ -385,8 +389,18 @@ func newUI() *uiWidgets {
 	formRow(general.Window, 1, "Root", root, rootPick)
 	Grid(general.TLabel(Txt("Options")), Row(2), Column(0), Sticky("nw"), Padx("1m"), Pady("1m"))
 	Grid(options, Row(2), Column(1), Columnspan(2), Sticky("w"), Padx("1m"), Pady("1m"))
+	logAccessVar := Variable("0")
+	logErrorVar := Variable("0")
+	logOptions := general.TFrame()
+	logAccess := logOptions.TCheckbutton(Txt("Access"), logAccessVar)
+	logError := logOptions.TCheckbutton(Txt("Error"), logErrorVar)
+	Grid(logAccess, Row(0), Column(0), Sticky("w"), Padx("1m"))
+	Grid(logError, Row(0), Column(1), Sticky("w"), Padx("1m"))
+
 	formEntryRow(general.Window, 3, "Index Page", dirIndex)
 	formEntryRow(general.Window, 4, "Hide", hide)
+	Grid(general.TLabel(Txt("Log")), Row(5), Column(0), Sticky("w"), Padx("1m"), Pady("1m"))
+	Grid(logOptions, Row(5), Column(1), Columnspan(2), Sticky("w"), Padx("1m"), Pady("1m"))
 	GridColumnConfigure(general, 1, Weight(1))
 
 	// Directory tab
@@ -411,6 +425,9 @@ func newUI() *uiWidgets {
 	// Links tab: clickable URLs, populated after the server starts.
 	links := newLinksTab(nb.Window)
 
+	// Logs tab: the running server's access and error logs.
+	logs := newLogsTab(nb.Window)
+
 	// About tab: static version information, no state and no handlers.
 	about := newAboutTab(nb.Window)
 
@@ -418,6 +435,7 @@ func newUI() *uiWidgets {
 	nb.Add(dir.frame, Txt("Directory"))
 	nb.Add(advanced, Txt("Advanced"))
 	nb.Add(links.frame, Txt("Links"))
+	nb.Add(logs.frame, Txt("Logs"))
 	nb.Add(about, Txt("About"))
 
 	// buttons
@@ -449,6 +467,8 @@ func newUI() *uiWidgets {
 		globalPerms: [permCount]*TCheckbuttonWidget{archive, upload, mkdir, del, cors, list},
 		dirIndex:    dirIndex,
 		hide:        hide,
+		logAccess:   logAccessVar,
+		logError:    logErrorVar,
 
 		dir: dir,
 
@@ -461,6 +481,7 @@ func newUI() *uiWidgets {
 		headers:     headers,
 
 		links: links,
+		logs:  logs,
 
 		start: start,
 		stop:  stop,
@@ -487,6 +508,7 @@ func newUI() *uiWidgets {
 			rootPick.Window,
 			archive.Window, upload.Window, mkdir.Window, del.Window, cors.Window,
 			list.Window,
+			logAccess.Window, logError.Window,
 			dir.refresh.Window,
 			tlsCertPick.Window, tlsKeyPick.Window,
 		},
