@@ -43,17 +43,11 @@ jobs:
       - name: Build all targets
         run: bash build/build-all.sh
 
-      - name: Package Linux distro packages (.deb, .rpm, Arch, apk)
-        run: bash build/pack-linux.sh
-
       - name: Install NSIS
         run: sudo apt-get update && sudo apt-get install -y nsis
 
-      - name: Package Windows installers
-        run: bash build/pack-windows.sh
-
-      - name: Package MacOS apps
-        run: bash build/pack-darwin.sh
+      - name: Package all platforms
+        run: bash build/pack-all.sh
 
       - name: Create release
         env:

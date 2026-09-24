@@ -1,4 +1,5 @@
 .*/
+!.github
 ghfs-gui
 ghfs-gui.exe
 output/
