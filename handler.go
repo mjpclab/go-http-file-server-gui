@@ -85,7 +85,7 @@ func attachStartStopHandlers(widgets *uiWidgets) {
 	widgets.start.Configure(Command(func() {
 		inst, errs := createApp(widgets)
 		if len(errs) > 0 {
-			showErrors(errs)
+			showErrors(widgets.win, errs)
 			return
 		}
 		appInst = inst
@@ -99,7 +99,7 @@ func attachStartStopHandlers(widgets *uiWidgets) {
 			// app.Open blocks while serving; UI updates must run on the GUI thread.
 			PostEvent(func() {
 				if len(openErrs) > 0 {
-					showErrors(openErrs)
+					showErrors(widgets.win, openErrs)
 				}
 				widgets.links.showPlaceholder()
 				widgets.stop.Configure(State("disabled"))
@@ -212,8 +212,10 @@ func setInputsEnabled(widgets *uiWidgets, enabled bool) {
 	widgets.dir.setLocked(!enabled)
 }
 
-func showErrors(errs []error) {
+// showErrors needs the visible window as parent: the default, ".", is withdrawn,
+// so the box would be neither centered over nor modal to the form.
+func showErrors(parent *Window, errs []error) {
 	err := errors.Join(errs...)
 	fmt.Println(err)
-	MessageBox(Icon("error"), Title("Error"), Msg(err.Error()), Type("ok"))
+	MessageBox(Icon("error"), Title("Error"), Msg(err.Error()), Type("ok"), Parent(parent))
 }
