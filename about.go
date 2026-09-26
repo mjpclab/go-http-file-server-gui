@@ -8,7 +8,7 @@ import (
 
 const (
 	urlAppRepo = "https://github.com/mjpclab/go-http-file-server-gui"
-	urlGhfs    = "https://github.com/mjpclab/go-http-file-server"
+	urlGhfs    = "https://pkg.go.dev/mjpclab.dev/ghfs"
 	urlTk      = "https://pkg.go.dev/modernc.org/tk9.0"
 	urlGo      = "https://go.dev/"
 )
