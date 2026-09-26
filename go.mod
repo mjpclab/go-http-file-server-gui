@@ -1,9 +1,9 @@
 module mjpclab.dev/ghfs-gui
 
-go 1.25.0
+go 1.27.0
 
 require (
-	mjpclab.dev/ghfs v1.22.0
+	mjpclab.dev/ghfs v1.22.1
 	modernc.org/tk9.0 v1.80.0
 )
 
