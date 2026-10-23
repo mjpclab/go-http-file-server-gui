@@ -69,11 +69,21 @@ func newLogsTab(parent *Window) *logsTab {
 	sb.Configure(Command(func(e *Event) { e.Yview(l.text) }))
 	l.text.TagConfigure(errorLogTag, Foreground(logErrorColor))
 
+	menu := l.frame.Menu(Tearoff(false))
+	menu.AddCommand(Lbl("Clear Logs"), Command(l.clear))
+	Bind(l.text, "<Button-3>", Command(func(e *Event) { Popup(menu.Window, e.XRoot, e.YRoot, nil) }))
+
 	Grid(l.text, Row(0), Column(0), Sticky("news"))
 	Grid(sb, Row(0), Column(1), Sticky("ns"))
 	GridRowConfigure(l.frame, 0, Weight(1))
 	GridColumnConfigure(l.frame, 0, Weight(1))
 	return l
+}
+
+func (l *logsTab) clear() {
+	l.text.Configure(State("normal"))
+	l.text.Delete("1.0", "end")
+	l.text.Configure(State("disabled"))
 }
 
 // note logs a line of the GUI's own, prefixed with a timestamp the way ghfs
