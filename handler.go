@@ -81,6 +81,7 @@ func attachFilePickHandler(parent *Window, button *TButtonWidget, entry *TEntryW
 
 func attachStartStopHandlers(widgets *uiWidgets) {
 	var appInst *app.App
+	var logging bool
 
 	// closeApp closes the instance at most once; a second app.Close would close
 	// ghfs's log channels again and panic.
@@ -90,6 +91,9 @@ func attachStartStopHandlers(widgets *uiWidgets) {
 		}
 		inst := appInst
 		appInst = nil
+		if logging {
+			widgets.logs.note("Stopping server")
+		}
 		inst.Close()
 	}
 
@@ -100,6 +104,11 @@ func attachStartStopHandlers(widgets *uiWidgets) {
 			return
 		}
 		appInst = inst
+		logging = widgets.logAccess.Get() == "1" || widgets.logError.Get() == "1"
+		if logging {
+			widgets.logs.separate()
+			widgets.logs.note("Starting server")
+		}
 		savePreference(widgets)
 		widgets.start.Configure(State("disabled"))
 		widgets.stop.Configure(State("normal"))

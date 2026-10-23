@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"mjpclab.dev/ghfs/src/serverLog"
 	. "modernc.org/tk9.0"
 )
 
@@ -73,6 +74,23 @@ func newLogsTab(parent *Window) *logsTab {
 	GridRowConfigure(l.frame, 0, Weight(1))
 	GridColumnConfigure(l.frame, 0, Weight(1))
 	return l
+}
+
+// note logs a line of the GUI's own, prefixed with a timestamp the way ghfs
+// prefixes its lines.
+func (l *logsTab) note(text string) {
+	buf := append(serverLog.NewBuffer(len(text)), text...)
+	l.enqueue(logEntry{text: string(buf)})
+}
+
+// separate queues a blank line unless the log is empty. Lines still pending
+// from the previous run count, as they will be shown before it. Called on
+// Start, when the previous server's Close has already waited out every ghfs
+// writer, so pending needs no lock.
+func (l *logsTab) separate() {
+	if len(l.pending) > 0 || l.text.Index("end-1c") != "1.0" {
+		l.enqueue(logEntry{})
+	}
 }
 
 // enqueue batches lines until the GUI thread picks them up. At most one flush
