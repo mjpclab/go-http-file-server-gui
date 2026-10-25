@@ -23,6 +23,7 @@ func applySystemTheme() {
 		linkColor = "#90caf9"
 		readonlyColor = "#909090"
 		logErrorColor = "#e05555"
+		logMutationColor = "#ffd54f"
 		// Azure dark's default disabled foreground (#aaaaaa) is too close to
 		// the enabled #ffffff; the button face is the #333 window background
 		// (rect-basic is transparent), so #909090 stays legible while widening
@@ -293,6 +294,7 @@ type uiWidgets struct {
 	dirIndex    *TEntryWidget
 	hide        *TEntryWidget
 	logAccess   *VariableOpt
+	logMutation *VariableOpt
 	logError    *VariableOpt
 
 	dir *dirTab
@@ -390,12 +392,15 @@ func newUI() *uiWidgets {
 	Grid(general.TLabel(Txt("Options")), Row(2), Column(0), Sticky("nw"), Padx("1m"), Pady("1m"))
 	Grid(options, Row(2), Column(1), Columnspan(2), Sticky("w"), Padx("1m"), Pady("1m"))
 	logAccessVar := Variable("0")
+	logMutationVar := Variable("0")
 	logErrorVar := Variable("0")
 	logOptions := general.TFrame()
 	logAccess := logOptions.TCheckbutton(Txt("Access"), logAccessVar)
+	logMutation := logOptions.TCheckbutton(Txt("Mutation"), logMutationVar)
 	logError := logOptions.TCheckbutton(Txt("Error"), logErrorVar)
 	Grid(logAccess, Row(0), Column(0), Sticky("w"), Padx("1m"))
-	Grid(logError, Row(0), Column(1), Sticky("w"), Padx("1m"))
+	Grid(logMutation, Row(0), Column(1), Sticky("w"), Padx("1m"))
+	Grid(logError, Row(0), Column(2), Sticky("w"), Padx("1m"))
 
 	formEntryRow(general.Window, 3, "Index Page", dirIndex)
 	formEntryRow(general.Window, 4, "Hide", hide)
@@ -468,6 +473,7 @@ func newUI() *uiWidgets {
 		dirIndex:    dirIndex,
 		hide:        hide,
 		logAccess:   logAccessVar,
+		logMutation: logMutationVar,
 		logError:    logErrorVar,
 
 		dir: dir,
@@ -508,7 +514,7 @@ func newUI() *uiWidgets {
 			rootPick.Window,
 			archive.Window, upload.Window, mkdir.Window, del.Window, cors.Window,
 			list.Window,
-			logAccess.Window, logError.Window,
+			logAccess.Window, logMutation.Window, logError.Window,
 			dir.refresh.Window,
 			tlsCertPick.Window, tlsKeyPick.Window,
 		},

@@ -14,48 +14,57 @@ import (
 // without bound; the oldest lines are dropped first.
 const maxLogLines = 10000
 
-const errorLogTag = "error"
+const (
+	mutationLogTag = "mutation"
+	errorLogTag    = "error"
+)
 
-// logErrorColor is set by applySystemTheme, before the tab is built.
-var logErrorColor = "#c62828"
+// The colors are set by applySystemTheme, before the tab is built.
+var (
+	logMutationColor = "#8a6d00"
+	logErrorColor    = "#c62828"
+)
 
-// logsTab is the Logs tab: one read-only text receiving the access and error
-// logs of the running server, interleaved in arrival order.
+// logsTab is the Logs tab: one read-only text receiving the access, mutation
+// and error logs of the running server, interleaved in arrival order.
 type logsTab struct {
 	frame *TFrameWidget
 	text  *TextWidget
 
 	// The writers handed to ghfs. They must be distinct values: ghfs's
 	// WriterMan shares one queue between loggers given the same writer.
-	accessLog *logWriter
-	errorLog  *logWriter
+	accessLog   *logWriter
+	mutationLog *logWriter
+	errorLog    *logWriter
 
 	mu      sync.Mutex
 	pending []logEntry
 	posted  bool
 }
 
+// tag is the text tag the line is inserted with, empty for access lines.
 type logEntry struct {
-	isError bool
-	text    string
+	tag  string
+	text string
 }
 
 // logWriter receives one complete log line per Write, from a ghfs goroutine.
 type logWriter struct {
-	tab     *logsTab
-	isError bool
+	tab *logsTab
+	tag string
 }
 
 func (w *logWriter) Write(p []byte) (int, error) {
 	text := strings.TrimRight(string(p), "\r\n")
-	w.tab.enqueue(logEntry{isError: w.isError, text: text})
+	w.tab.enqueue(logEntry{tag: w.tag, text: text})
 	return len(p), nil
 }
 
 func newLogsTab(parent *Window) *logsTab {
 	l := &logsTab{}
 	l.accessLog = &logWriter{tab: l}
-	l.errorLog = &logWriter{tab: l, isError: true}
+	l.mutationLog = &logWriter{tab: l, tag: mutationLogTag}
+	l.errorLog = &logWriter{tab: l, tag: errorLogTag}
 
 	l.frame = parent.TFrame(Padding("2m"))
 	sb := l.frame.TScrollbar()
@@ -67,6 +76,7 @@ func newLogsTab(parent *Window) *logsTab {
 		Yscrollcommand(func(e *Event) { e.ScrollSet(sb) }),
 	)
 	sb.Configure(Command(func(e *Event) { e.Yview(l.text) }))
+	l.text.TagConfigure(mutationLogTag, Foreground(logMutationColor))
 	l.text.TagConfigure(errorLogTag, Foreground(logErrorColor))
 
 	menu := l.frame.Menu(Tearoff(false))
@@ -138,8 +148,8 @@ func (l *logsTab) flush() {
 			text = "\n" + text
 		}
 		empty = false
-		if e.isError {
-			l.text.Insert("end", text, errorLogTag)
+		if e.tag != "" {
+			l.text.Insert("end", text, e.tag)
 		} else {
 			l.text.Insert("end", text)
 		}

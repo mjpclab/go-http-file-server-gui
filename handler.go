@@ -104,7 +104,7 @@ func attachStartStopHandlers(widgets *uiWidgets) {
 			return
 		}
 		appInst = inst
-		logging = widgets.logAccess.Get() == "1" || widgets.logError.Get() == "1"
+		logging = widgets.logAccess.Get() == "1" || widgets.logMutation.Get() == "1" || widgets.logError.Get() == "1"
 		if logging {
 			widgets.logs.separate()
 			widgets.logs.note("Starting server")
@@ -188,14 +188,17 @@ func createApp(widgets *uiWidgets) (appInst *app.App, errs []error) {
 
 	// Left as untyped nil when unchecked: a nil *logWriter stored in the
 	// interface would pass ghfs's nil test and be written to.
-	var accessLog, errorLog io.Writer
+	var accessLog, mutationLog, errorLog io.Writer
 	if widgets.logAccess.Get() == "1" {
 		accessLog = widgets.logs.accessLog
+	}
+	if widgets.logMutation.Get() == "1" {
+		mutationLog = widgets.logs.mutationLog
 	}
 	if widgets.logError.Get() == "1" {
 		errorLog = widgets.logs.errorLog
 	}
-	appInst, errs = app.NewWriterLogApp(params, [][2]io.Writer{{accessLog, errorLog}})
+	appInst, errs = app.NewWriterLogApp(params, [][3]io.Writer{{accessLog, mutationLog, errorLog}})
 	return
 }
 
