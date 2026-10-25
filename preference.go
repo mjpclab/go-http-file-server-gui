@@ -31,6 +31,7 @@ type preference struct {
 	Key         string `json:"key"`
 	Headers     string `json:"headers"`
 	LogAccess   bool   `json:"logAccess"`
+	LogMutation bool   `json:"logMutation"`
 	LogError    bool   `json:"logError"`
 	// DirPerms maps an absolute directory path to the permissions granted on
 	// it, e.g. {"/srv/share/pub": ["archive", "upload"]}.
@@ -74,6 +75,7 @@ func loadPreference(widgets *uiWidgets) {
 	widgets.dirIndex.Configure(Textvariable(pref.DirIndex))
 	widgets.hide.Configure(Textvariable(pref.Hide))
 	setChecked(widgets.logAccess, pref.LogAccess)
+	setChecked(widgets.logMutation, pref.LogMutation)
 	setChecked(widgets.logError, pref.LogError)
 	widgets.listenPlain.Configure(Textvariable(pref.ListenPlain))
 	widgets.listenTLS.Configure(Textvariable(pref.ListenTLS))
@@ -117,6 +119,7 @@ func savePreference(widgets *uiWidgets) {
 		DirIndex:    widgets.dirIndex.Textvariable(),
 		Hide:        widgets.hide.Textvariable(),
 		LogAccess:   widgets.logAccess.Get() == "1",
+		LogMutation: widgets.logMutation.Get() == "1",
 		LogError:    widgets.logError.Get() == "1",
 		ListenPlain: widgets.listenPlain.Textvariable(),
 		ListenTLS:   widgets.listenTLS.Textvariable(),
